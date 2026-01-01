@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>WMS - Admin Dashboard</title>
+    <style>
+        :root {
+            --bg-gradient-start: #0f172a;
+            --bg-gradient-end: #1e293b;
+            --card-bg: #0b1120;
+            --accent: #4f46e5;
+            --accent-soft: rgba(79, 70, 229, 0.15);
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --border-subtle: #1f2937;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            min-height: 100vh;
+            background: radial-gradient(circle at top, #1e293b, #020617 55%);
+            color: var(--text-main);
+            display: flex;
+        }
+
+        .sidebar {
+            width: 260px;
+            background: linear-gradient(to bottom, #020617, #020617 50%, #020617ee);
+            border-right: 1px solid #111827;
+            padding: 24px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-mark {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            background: radial-gradient(circle at 20% 20%, #4f46e5, #0ea5e9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 18px;
+        }
+
+        .logo-text {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .logo-text span:first-child {
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            font-size: 13px;
+            text-transform: uppercase;
+            color: #e5e7eb;
+        }
+
+        .logo-text span:last-child {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .sidebar-section-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.09em;
+            color: #6b7280;
+            margin-bottom: 10px;
+        }
+
+        .nav-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .nav-item a {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 9px 10px;
+            border-radius: 8px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 13px;
+            transition: background 0.15s, color 0.15s, transform 0.05s;
+        }
+
+        .nav-item a span.label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-item a span.badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 999px;
+            background: rgba(148, 163, 184, 0.15);
+            color: #e5e7eb;
+        }
+
+        .nav-item a:hover {
+            background: rgba(148, 163, 184, 0.08);
+            color: #e5e7eb;
+            transform: translateY(-1px);
+        }
+
+        .nav-item a.active {
+            background: var(--accent-soft);
+            color: #e5e7eb;
+            border: 1px solid rgba(79, 70, 229, 0.6);
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 12px;
+            border-top: 1px solid #111827;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .user-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .user-role {
+            font-size: 11px;
+            color: #a5b4fc;
+        }
+
+        .logout-btn {
+            margin-top: 6px;
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid #374151;
+            background: rgba(15, 23, 42, 0.8);
+            color: #e5e7eb;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            align-items: center;
+            transition: background 0.15s, border-color 0.15s, transform 0.05s;
+        }
+
+        .logout-btn:hover {
+            background: #ef4444;
+            border-color: #b91c1c;
+            transform: translateY(-1px);
+        }
+
+        .main {
+            flex: 1;
+            padding: 24px 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .title-block h1 {
+            font-size: 22px;
+            font-weight: 600;
+        }
+
+        .title-block p {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .chip-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .chip {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            border: 1px solid #1f2937;
+            color: #9ca3af;
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        .chip.primary {
+            border-color: rgba(79, 70, 229, 0.8);
+            background: rgba(79, 70, 229, 0.15);
+            color: #c7d2fe;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 2.2fr 1.3fr;
+            gap: 18px;
+        }
+
+        .card {
+            background: radial-gradient(circle at top left, #111827, #020617);
+            border-radius: 12px;
+            padding: 16px 16px 14px;
+            border: 1px solid var(--border-subtle);
+            box-shadow: 0 18px 35px rgba(15, 23, 42, 0.75);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #e5e7eb;
+        }
+
+        .card-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .pill {
+            font-size: 11px;
+            padding: 3px 7px;
+            border-radius: 999px;
+            background: rgba(15, 118, 110, 0.2);
+            color: #6ee7b7;
+            border: 1px solid rgba(45, 212, 191, 0.6);
+        }
+
+        .quick-links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 10px;
+            margin-top: 4px;
+        }
+
+        .quick-link {
+            border-radius: 9px;
+            padding: 10px 10px 9px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid #1f2937;
+            text-decoration: none;
+            color: #e5e7eb;
+            font-size: 13px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            transition: background 0.15s, border-color 0.15s, transform 0.05s;
+        }
+
+        .quick-link:hover {
+            background: rgba(55, 65, 81, 0.9);
+            border-color: #4f46e5;
+            transform: translateY(-1px);
+        }
+
+        .quick-link span.label {
+            font-weight: 500;
+        }
+
+        .quick-link span.desc {
+            font-size: 11px;
+            color: #9ca3af;
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .stat {
+            flex: 1;
+            padding: 8px 9px;
+            border-radius: 8px;
+            border: 1px dashed #1f2937;
+            background: rgba(15, 23, 42, 0.75);
+            font-size: 11px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .stat-label {
+            color: #9ca3af;
+        }
+
+        .stat-value {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .stat-positive {
+            color: #4ade80;
+        }
+
+        .stat-warning {
+            color: #fbbf24;
+        }
+
+        .activity-list {
+            list-style: none;
+            margin-top: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 12px;
+        }
+
+        .activity-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 8px;
+            border-radius: 7px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid #111827;
+        }
+
+        .activity-item span.meta {
+            color: #9ca3af;
+            font-size: 11px;
+        }
+
+        @media (max-width: 960px) {
+            body {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                flex-direction: row;
+                align-items: center;
+                gap: 12px;
+            }
+            .sidebar-footer {
+                display: none;
+            }
+            .main {
+                padding: 18px 14px 20px;
+            }
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="sidebar">
+    <div class="logo">
+        <div class="logo-mark">W</div>
+        <div class="logo-text">
+            <span>WMS Admin</span>
+            <span>Warehouse Management</span>
+        </div>
+    </div>
+
+    <div>
+        <div class="sidebar-section-title">Navigasyon</div>
+        <ul class="nav-list">
+            <li class="nav-item">
+                <a class="active" href="/admin">
+                    <span class="label">Dashboard</span>
+                    <span class="badge">Admin</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a th:href="@{/products}">
+                    <span class="label">Ürün Yönetimi</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a th:href="@{/inventory}">
+                    <span class="label">Stok / Envanter</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a th:href="@{/orders}">
+                    <span class="label">Müşteri Siparişleri</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a th:href="@{/purchase-orders}">
+                    <span class="label">Satın Alma Siparişleri</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a th:href="@{/locations}">
+                    <span class="label">Lokasyon Yönetimi</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a th:href="@{/reports}">
+                    <span class="label">Raporlar</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="sidebar-footer">
+        <div class="user-row">
+            <span id="adminEmail">Admin</span>
+            <span class="user-role">ROLE_ADMIN</span>
+        </div>
+        <button id="logoutBtn" class="logout-btn">
+            <span>Çıkış Yap</span>
+        </button>
+    </div>
+</div>
+
+<div class="main">
+    <div class="main-header">
+        <div class="title-block">
+            <h1>Admin Dashboard</h1>
+            <p>Depo operasyonlarını buradan merkezi olarak yönetebilirsin.</p>
+        </div>
+        <div class="chip-row">
+            <span class="chip primary">Yalnızca Admin Yetkili</span>
+            <span class="chip">JWT ile güvenli oturum</span>
+        </div>
+    </div>
+
+    <div class="grid">
+        <!-- Sol: Hızlı bağlantılar + özet istatistikler -->
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">Hızlı İşlemler</div>
+                    <div class="card-subtitle">En sık kullandığın yönetim ekranlarına kısayol.</div>
+                </div>
+                <span class="pill">Genel Bakış</span>
+            </div>
+
+            <div class="quick-links">
+                <a class="quick-link" th:href="@{/products}">
+                    <span class="label">Ürün Yönetimi</span>
+                    <span class="desc">Ürün ekle, güncelle, stok durumunu takip et.</span>
+                </a>
+                <a class="quick-link" th:href="@{/inventory}">
+                    <span class="label">Envanter</span>
+                    <span class="desc">Depo bazlı stok seviyelerini kontrol et.</span>
+                </a>
+                <a class="quick-link" th:href="@{/purchase-orders}">
+                    <span class="label">Satın Alma Siparişleri</span>
+                    <span class="desc">Tedarikçi siparişlerini yönet.</span>
+                </a>
+                <a class="quick-link" th:href="@{/orders}">
+                    <span class="label">Müşteri Siparişleri</span>
+                    <span class="desc">Çıkış siparişlerini ve durumlarını izle.</span>
+                </a>
+                <a class="quick-link" th:href="@{/locations}">
+                    <span class="label">Lokasyonlar</span>
+                    <span class="desc">Raf, koridor ve depo alanlarını yapılandır.</span>
+                </a>
+                <a class="quick-link" th:href="@{/reports}">
+                    <span class="label">Raporlar</span>
+                    <span class="desc">Performans ve stok raporları oluştur.</span>
+                </a>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat">
+                    <span class="stat-label">Sistem Sağlığı</span>
+                    <span class="stat-value stat-positive">✔ Çalışıyor</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Kritik Stok Uyarıları</span>
+                    <span class="stat-value stat-warning">Örnek: 3 ürün</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Aktif Kullanıcı Rolü</span>
+                    <span class="stat-value">ADMIN</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sağ: Son aktiviteler (dummy statik) -->
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">Son Yönetim Aktiviteleri</div>
+                    <div class="card-subtitle">Örnek / dummy bilgiler – gerçek log entegrasyonu için hazır.</div>
+                </div>
+            </div>
+
+            <ul class="activity-list">
+                <li class="activity-item">
+                    <span>Yeni ürün kaydı oluşturuldu</span>
+                    <span class="meta">5 dk önce</span>
+                </li>
+                <li class="activity-item">
+                    <span>Satın alma siparişi onaylandı</span>
+                    <span class="meta">18 dk önce</span>
+                </li>
+                <li class="activity-item">
+                    <span>Stok sayımı tamamlandı (Merkez Depo)</span>
+                    <span class="meta">Bugün • 10:24</span>
+                </li>
+                <li class="activity-item">
+                    <span>Rapor: Haftalık sevkiyat özeti alındı</span>
+                    <span class="meta">Dün • 17:40</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Header'da admin email'ini göster
+    const email = localStorage.getItem('email');
+    if (email) {
+        document.getElementById('adminEmail').textContent = email;
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', function () {
+        localStorage.removeItem('token');
+        localStorage.removeItem('role');
+        localStorage.removeItem('email');
+        window.location.href = '/login';
+    });
+</script>
+</body>
+</html>

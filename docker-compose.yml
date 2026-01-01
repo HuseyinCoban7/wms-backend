@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  wms-postgres:
+    image: postgres:15-alpine
+    container_name: wms-postgres
+    environment:
+      POSTGRES_DB: wmsdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "6543:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d wmsdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wms-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    container_name: wms-backend
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://wms-postgres:5432/wmsdb
+      SPRING_DATASOURCE_USERNAME: wmsuser
+      SPRING_DATASOURCE_PASSWORD: wms
+    ports:
+      - "8089:8089"
+    depends_on:
+      wms-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8089/actuator/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - wms-network
+
+  selenium-chrome:
+    image: selenium/standalone-chrome:latest
+    container_name: wms-selenium
+    ports:
+      - "4444:4444"
+      - "7900:7900"
+    shm_size: 2gb
+    environment:
+      SE_NODE_MAX_SESSIONS: 5
+      SE_NODE_SESSION_TIMEOUT: 300
+    networks:
+      - wms-network
+
+volumes:
+  postgres_data:
+
+networks:
+  wms-network:
+    driver: bridge

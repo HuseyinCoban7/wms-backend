@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>WMS - Inventory</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #28a745; color: white; }
+        button { padding: 8px 16px; margin: 5px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; border: none; }
+        .btn-success { background: #28a745; color: white; border: none; }
+        .btn-danger { background: #dc3545; color: white; border: none; }
+        .btn-warning { background: #ffc107; color: black; border: none; }
+        .btn-secondary { background: #6c757d; color: white; border: none; }
+        #logout { float: right; }
+        .low-stock { background-color: #ffcccc; }
+        .form-section {
+            background: #f8f9fa;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .form-group { margin: 10px 0; }
+        .form-group label { display: inline-block; width: 120px; }
+        .form-group input, .form-group select { padding: 5px; width: 200px; }
+        .filter-section {
+            background: #e9ecef;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .filter-section h4 { margin-top: 0; }
+        .action-buttons button { margin: 2px; padding: 5px 10px; font-size: 12px; }
+    </style>
+</head>
+<body>
+<h1>Inventory Management</h1>
+<button id="logout" class="btn-danger">Logout</button>
+
+<!-- Filtreler -->
+<div class="filter-section">
+    <h4>Filters</h4>
+    <div class="form-group">
+        <label>Filter by Product:</label>
+        <select id="filterProductSelect">
+            <option value="">All Products</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label>Filter by Location:</label>
+        <select id="filterLocationSelect">
+            <option value="">All Locations</option>
+        </select>
+    </div>
+    <button class="btn-primary" onclick="applyFilters()">Apply Filters</button>
+    <button class="btn-secondary" onclick="clearFilters()">Clear Filters</button>
+</div>
+
+<!-- Yeni Stok Ekleme/Güncelleme Formu -->
+<div class="form-section">
+    <h3 id="formTitle">Add/Update Inventory</h3>
+    <input type="hidden" id="inventoryId" value="">
+    <div class="form-group">
+        <label>Product:</label>
+        <select id="productSelect" required>
+            <option value="">Select Product</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label>Location:</label>
+        <select id="locationSelect" required>
+            <option value="">Select Location</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label>Quantity:</label>
+        <input type="number" id="quantityInput" min="0" value="0" required>
+    </div>
+    <div class="form-group">
+        <label>Reserved:</label>
+        <input type="number" id="reservedInput" min="0" value="0">
+    </div>
+    <button class="btn-success" onclick="saveInventory()">Save Inventory</button>
+    <button class="btn-secondary" onclick="cancelEdit()">Cancel</button>
+</div>
+
+<!-- Stok Listesi -->
+<h3>Current Inventory</h3>
+<table id="inventoryTable">
+    <thead>
+    <tr>
+        <th>Product</th>
+        <th>SKU</th>
+        <th>Location</th>
+        <th>Warehouse</th>
+        <th>Quantity</th>
+        <th>Reserved</th>
+        <th>Available</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+    <tbody id="inventoryBody"></tbody>
+</table>
+
+<script>
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = '/login';
+
+    const headers = {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+    };
+
+    let allInventory = []; // Tüm stok verisi (filtreleme için)
+    let currentFilter = { productId: null, locationId: null };
+
+    document.getElementById('logout').addEventListener('click', () => {
+        localStorage.clear();
+        window.location.href = '/login';
+    });
+
+    // Ürünleri yükle (hem form hem filtre için)
+    async function loadProducts() {
+        try {
+            const response = await fetch('/api/products', { headers });
+            const result = await response.json();
+
+            const products = (result && result.data && Array.isArray(result.data.content))
+                ? result.data.content
+                : [];
+
+            // Form dropdown
+            const select = document.getElementById('productSelect');
+            select.innerHTML = '<option value="">Select Product</option>';
+
+            // Filtre dropdown
+            const filterSelect = document.getElementById('filterProductSelect');
+            filterSelect.innerHTML = '<option value="">All Products</option>';
+
+            if (!Array.isArray(products)) {
+                console.error('Products is not an array:', products);
+                return;
+            }
+
+            products.forEach(p => {
+                // Form
+                const option = document.createElement('option');
+                option.value = p.id;
+                option.textContent = `${p.name} (${p.sku})`;
+                select.appendChild(option);
+
+                // Filtre
+                const filterOption = document.createElement('option');
+                filterOption.value = p.id;
+                filterOption.textContent = `${p.name} (${p.sku})`;
+                filterSelect.appendChild(filterOption);
+            });
+        } catch (error) {
+            console.error('Error loading products:', error);
+        }
+    }
+
+    // Lokasyonları yükle (hem form hem filtre için)
+    async function loadLocations() {
+        try {
+            const response = await fetch('/api/locations', { headers });
+            const result = await response.json();
+
+            const locations = result.data || [];
+
+            // Form dropdown
+            const select = document.getElementById('locationSelect');
+            select.innerHTML = '<option value="">Select Location</option>';
+
+            // Filtre dropdown
+            const filterSelect = document.getElementById('filterLocationSelect');
+            filterSelect.innerHTML = '<option value="">All Locations</option>';
+
+            if (!Array.isArray(locations)) {
+                console.error('Locations is not an array:', locations);
+                return;
+            }
+
+            locations.forEach(loc => {
+                // Form
+                const option = document.createElement('option');
+                option.value = loc.id;
+                option.textContent = `${loc.code} - ${loc.description}`;
+                select.appendChild(option);
+
+                // Filtre
+                const filterOption = document.createElement('option');
+                filterOption.value = loc.id;
+                filterOption.textContent = `${loc.code} - ${loc.description}`;
+                filterSelect.appendChild(filterOption);
+            });
+        } catch (error) {
+            console.error('Error loading locations:', error);
+        }
+    }
+
+    // Stok listesini yükle
+    async function loadInventory() {
+        try {
+            const response = await fetch('/api/inventory', { headers });
+            const result = await response.json();
+
+            allInventory = result.data || [];
+            renderInventory(allInventory);
+        } catch (error) {
+            console.error('Error loading inventory:', error);
+            alert('Failed to load inventory');
+        }
+    }
+
+    // Stok tablosunu render et
+    function renderInventory(inventory) {
+        const tbody = document.getElementById('inventoryBody');
+        tbody.innerHTML = '';
+
+        if (!Array.isArray(inventory) || inventory.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">No inventory records found</td></tr>';
+            return;
+        }
+
+        inventory.forEach(inv => {
+            const isLowStock = inv.availableQuantity < 10;
+            const row = `
+                <tr class="${isLowStock ? 'low-stock' : ''}">
+                    <td>${inv.productName || 'N/A'}</td>
+                    <td>${inv.productSku || 'N/A'}</td>
+                    <td>${inv.locationCode || 'N/A'}</td>
+                    <td>${inv.warehouseName || 'N/A'}</td>
+                    <td>${inv.quantity}</td>
+                    <td>${inv.reservedQuantity}</td>
+                    <td>${inv.availableQuantity}</td>
+                    <td class="action-buttons">
+                        <button class="btn-warning" onclick="editInventory(${inv.id})">Edit</button>
+                        <button class="btn-danger" onclick="deleteInventory(${inv.id})">Delete</button>
+                    </td>
+                </tr>
+            `;
+            tbody.innerHTML += row;
+        });
+    }
+
+    // Filtreleri uygula
+    function applyFilters() {
+        const productId = document.getElementById('filterProductSelect').value;
+        const locationId = document.getElementById('filterLocationSelect').value;
+
+        currentFilter.productId = productId ? parseInt(productId) : null;
+        currentFilter.locationId = locationId ? parseInt(locationId) : null;
+
+        let filtered = allInventory;
+
+        if (currentFilter.productId) {
+            filtered = filtered.filter(inv => inv.productId === currentFilter.productId);
+        }
+
+        if (currentFilter.locationId) {
+            filtered = filtered.filter(inv => inv.locationId === currentFilter.locationId);
+        }
+
+        renderInventory(filtered);
+    }
+
+    // Filtreleri temizle
+    function clearFilters() {
+        document.getElementById('filterProductSelect').value = '';
+        document.getElementById('filterLocationSelect').value = '';
+        currentFilter = { productId: null, locationId: null };
+        renderInventory(allInventory);
+    }
+
+    // Yeni stok kaydet veya güncelle
+    async function saveInventory() {
+        const inventoryId = document.getElementById('inventoryId').value;
+        const productId = document.getElementById('productSelect').value;
+        const locationId = document.getElementById('locationSelect').value;
+        const quantity = parseInt(document.getElementById('quantityInput').value);
+        const reservedQuantity = parseInt(document.getElementById('reservedInput').value);
+
+        if (!productId || !locationId) {
+            alert('Please select both product and location');
+            return;
+        }
+
+        try {
+            const method = inventoryId ? 'PUT' : 'POST';
+            const url = inventoryId ? `/api/inventory/${inventoryId}` : '/api/inventory';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: headers,
+                body: JSON.stringify({
+                    productId: parseInt(productId),
+                    locationId: parseInt(locationId),
+                    quantity: quantity,
+                    reservedQuantity: reservedQuantity
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                alert(inventoryId ? 'Inventory updated successfully!' : 'Inventory saved successfully!');
+                cancelEdit();
+                await loadInventory();
+            } else {
+                alert('Error: ' + (result.message || result.error || 'Failed to save inventory'));
+            }
+        } catch (error) {
+            console.error('Error saving inventory:', error);
+            alert('Failed to save inventory');
+        }
+    }
+
+    // Düzenleme moduna geç
+    function editInventory(id) {
+        const inventory = allInventory.find(inv => inv.id === id);
+        if (!inventory) {
+            alert('Inventory not found');
+            return;
+        }
+
+        document.getElementById('formTitle').textContent = 'Edit Inventory';
+        document.getElementById('inventoryId').value = inventory.id;
+        document.getElementById('productSelect').value = inventory.productId;
+        document.getElementById('locationSelect').value = inventory.locationId;
+        document.getElementById('quantityInput').value = inventory.quantity;
+        document.getElementById('reservedInput').value = inventory.reservedQuantity;
+
+        // Formu görünür yap (scroll)
+        document.querySelector('.form-section').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Düzenlemeyi iptal et
+    function cancelEdit() {
+        document.getElementById('formTitle').textContent = 'Add/Update Inventory';
+        document.getElementById('inventoryId').value = '';
+        document.getElementById('productSelect').value = '';
+        document.getElementById('locationSelect').value = '';
+        document.getElementById('quantityInput').value = 0;
+        document.getElementById('reservedInput').value = 0;
+    }
+
+    // Stok kaydını sil
+    async function deleteInventory(id) {
+        if (!confirm('Are you sure you want to delete this inventory record?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/inventory/${id}`, {
+                method: 'DELETE',
+                headers: headers
+            });
+
+            if (response.ok || response.status === 204) {
+                alert('Inventory deleted successfully!');
+                await loadInventory();
+            } else {
+                const result = await response.json();
+                alert('Error: ' + (result.message || result.error || 'Failed to delete inventory'));
+            }
+        } catch (error) {
+            console.error('Error deleting inventory:', error);
+            alert('Failed to delete inventory');
+        }
+    }
+
+    // Sayfa yüklendiğinde
+    loadProducts();
+    loadLocations();
+    loadInventory();
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/wmsdb
+    username: postgres
+    password: admin
+
+logging:
+  level:
+    root: INFO
+    com.wms: INFO

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>WMS - Locations</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #6f42c1; color: white; }
+        button { padding: 8px 16px; margin: 5px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; border: none; }
+        .btn-success { background: #28a745; color: white; border: none; }
+        .btn-danger { background: #dc3545; color: white; border: none; }
+        .btn-secondary { background: #6c757d; color: white; border: none; }
+        #logout { float: right; }
+        .form-section {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .form-group { margin: 10px 0; }
+        .form-group label { display: inline-block; width: 120px; }
+        .form-group input, .form-group select { padding: 5px; width: 220px; }
+        .action-buttons button { margin: 2px; padding: 5px 10px; font-size: 12px; }
+    </style>
+</head>
+<body>
+<h1>Locations</h1>
+<button id="logout" class="btn-danger">Logout</button>
+
+<div class="form-section">
+    <h3>Create / Edit Location</h3>
+    <input type="hidden" id="locationId">
+
+    <div class="form-group">
+        <label>Code:</label>
+        <input type="text" id="locationCode" placeholder="e.g. A1-01" required>
+    </div>
+
+    <div class="form-group">
+        <label>Description:</label>
+        <input type="text" id="locationDescription" placeholder="Description">
+    </div>
+
+    <div class="form-group">
+        <label>Warehouse:</label>
+        <select id="warehouseSelect">
+            <option value="">Select Warehouse</option>
+        </select>
+    </div>
+
+    <button id="saveLocationBtn" class="btn-primary">Save</button>
+    <button id="clearFormBtn" class="btn-secondary">Clear</button>
+</div>
+
+<table id="locationsTable">
+    <thead>
+    <tr>
+        <th>Code</th>
+        <th>Description</th>
+        <th>Warehouse</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+    <tbody id="locationsBody"></tbody>
+</table>
+
+<script>
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = '/login';
+
+    const headers = {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+    };
+
+    document.getElementById('logout').addEventListener('click', () => {
+        localStorage.clear();
+        window.location.href = '/login';
+    });
+
+    document.getElementById('saveLocationBtn').addEventListener('click', saveLocation);
+    document.getElementById('clearFormBtn').addEventListener('click', clearForm);
+
+    async function loadWarehouses() {
+        try {
+            const res = await fetch('/api/warehouses', { headers });
+            const result = await res.json();
+            const warehouses = result.data || result;
+
+            const select = document.getElementById('warehouseSelect');
+            select.innerHTML = '<option value="">Select Warehouse</option>';
+
+            if (!Array.isArray(warehouses)) return;
+
+            warehouses.forEach(w => {
+                const opt = document.createElement('option');
+                opt.value = w.id;
+                opt.textContent = w.name;
+                select.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Error loading warehouses', e);
+        }
+    }
+
+    async function loadLocations() {
+        try {
+            const res = await fetch('/api/locations', { headers });
+            const result = await res.json();
+            const locations = result.data || result;
+
+            const tbody = document.getElementById('locationsBody');
+            tbody.innerHTML = '';
+
+            if (!Array.isArray(locations) || locations.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No locations found</td></tr>';
+                return;
+            }
+
+            locations.forEach(loc => {
+                const tr = document.createElement('tr');
+                const description = (loc.description || '').replace(/'/g, "\\'");
+                tr.innerHTML = `
+                    <td>${loc.code}</td>
+                    <td>${loc.description || ''}</td>
+                    <td>${loc.warehouseName || ''}</td>
+                    <td class="action-buttons">
+                        <button class="btn-success" onclick="editLocation(${loc.id}, '${loc.code}', '${description}', ${loc.warehouseId || 'null'})">Edit</button>
+                        <button class="btn-danger" onclick="deleteLocation(${loc.id})">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+        } catch (e) {
+            console.error('Error loading locations', e);
+        }
+    }
+
+    function clearForm() {
+        document.getElementById('locationId').value = '';
+        document.getElementById('locationCode').value = '';
+        document.getElementById('locationDescription').value = '';
+        document.getElementById('warehouseSelect').value = '';
+    }
+
+    async function saveLocation() {
+        const id = document.getElementById('locationId').value;
+        const code = document.getElementById('locationCode').value.trim();
+        const description = document.getElementById('locationDescription').value.trim();
+        const warehouseId = document.getElementById('warehouseSelect').value;
+
+        if (!code || !warehouseId) {
+            alert('Code and Warehouse are required');
+            return;
+        }
+
+        const payload = {
+            code,
+            description: description || null,
+            warehouseId: parseInt(warehouseId)
+        };
+
+        const url = id ? `/api/locations/${id}` : '/api/locations';
+        const method = id ? 'PUT' : 'POST';
+
+        try {
+            const res = await fetch(url, {
+                method,
+                headers,
+                body: JSON.stringify(payload)
+            });
+
+            const json = await res.json();
+
+            if (res.ok && (json.success === undefined || json.success)) {
+                alert('Location saved');
+                clearForm();
+                await loadLocations();
+            } else {
+                alert(json.error || 'Failed to save location');
+            }
+        } catch (e) {
+            console.error('Error saving location', e);
+            alert('Failed to save location');
+        }
+    }
+
+    function editLocation(id, code, description, warehouseId) {
+        document.getElementById('locationId').value = id;
+        document.getElementById('locationCode').value = code;
+        document.getElementById('locationDescription').value = description || '';
+        if (warehouseId) {
+            document.getElementById('warehouseSelect').value = warehouseId;
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function deleteLocation(id) {
+        if (!confirm('Are you sure you want to delete this location?')) return;
+
+        try {
+            const res = await fetch(`/api/locations/${id}`, {
+                method: 'DELETE',
+                headers
+            });
+
+            if (res.status === 204) {
+                alert('Location deleted');
+                await loadLocations();
+                return;
+            }
+
+            const json = await res.json().catch(() => ({}));
+
+            if (res.ok && (json.success === undefined || json.success)) {
+                alert('Location deleted');
+                await loadLocations();
+            } else {
+                alert(json.error || 'Failed to delete location');
+            }
+        } catch (e) {
+            console.error('Error deleting location', e);
+            alert('Failed to delete location');
+        }
+    }
+
+    (async function init() {
+        await loadWarehouses();
+        await loadLocations();
+    })();
+</script>
+</body>
+</html>

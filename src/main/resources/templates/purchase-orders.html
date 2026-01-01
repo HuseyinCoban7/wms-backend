@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>WMS - Purchase Orders</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #6c757d; color: white; }
+        button { padding: 8px 16px; margin: 5px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; border: none; }
+        .btn-success { background: #28a745; color: white; border: none; }
+        .btn-danger { background: #dc3545; color: white; border: none; }
+        .btn-secondary { background: #6c757d; color: white; border: none; }
+        .btn-info { background: #17a2b8; color: white; border: none; }
+        #logout { float: right; }
+        .status-pending { color: orange; font-weight: bold; }
+        .status-draft { color: gray; font-weight: bold; }
+        .status-approved { color: blue; font-weight: bold; }
+        .status-received { color: green; font-weight: bold; }
+        .form-section {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .form-group { margin: 10px 0; }
+        .form-group label { display: inline-block; width: 140px; }
+        .form-group input, .form-group select { padding: 5px; width: 230px; }
+        .action-buttons button { margin: 2px; padding: 5px 10px; font-size: 12px; }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #fff;
+            border: 2px solid #6c757d;
+            padding: 20px;
+            z-index: 1000;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            border-radius: 8px;
+            min-width: 400px;
+        }
+        .modal h3 { margin-top: 0; color: #6c757d; }
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+    </style>
+</head>
+<body>
+<h1>Purchase Orders</h1>
+<button id="logout" class="btn-danger">Logout</button>
+
+<div class="form-section">
+    <h3>Create Purchase Order</h3>
+    <div class="form-group">
+        <label>Supplier:</label>
+        <select id="supplierSelect">
+            <option value="">Select Supplier</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label>Warehouse:</label>
+        <select id="poWarehouseSelect">
+            <option value="">Select Warehouse</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label>Order Date:</label>
+        <input type="date" id="poOrderDate">
+    </div>
+    <div class="form-group">
+        <label>Expected Delivery:</label>
+        <input type="date" id="expectedDeliveryDate">
+    </div>
+    <button id="createPOBtn" class="btn-primary">Create PO</button>
+</div>
+
+<table id="poTable">
+    <thead>
+    <tr>
+        <th>Order Number</th>
+        <th>Supplier</th>
+        <th>Warehouse</th>
+        <th>Status</th>
+        <th>Order Date</th>
+        <th>Expected Delivery</th>
+        <th>Add Item</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+    <tbody id="poBody"></tbody>
+</table>
+
+<!-- Modal Overlay -->
+<div class="modal-overlay" id="poModalOverlay" onclick="closePoItemModal()"></div>
+
+<!-- Add Purchase Order Item Modal -->
+<div id="poItemModal" class="modal">
+    <h3>Add Item to PO <span id="poItemModalOrderNumber"></span></h3>
+    <input type="hidden" id="poItemOrderId">
+
+    <div class="form-group">
+        <label>Product:</label>
+        <select id="poItemProduct"></select>
+    </div>
+
+    <div class="form-group">
+        <label>Location:</label>
+        <select id="poItemLocation"></select>
+    </div>
+
+    <div class="form-group">
+        <label>Quantity:</label>
+        <input type="number" id="poItemQuantity" min="1" value="1" style="width:80px;">
+    </div>
+
+    <div class="form-group">
+        <label>Unit Price:</label>
+        <input type="number" step="0.01" id="poItemUnitPrice" value="10.00" style="width:100px;">
+    </div>
+
+    <div style="margin-top:15px;">
+        <button id="savePoItemBtn" class="btn-success">Save</button>
+        <button onclick="closePoItemModal()" class="btn-secondary">Cancel</button>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = '/login';
+
+    const headers = {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+    };
+
+    let productsCache = [];
+    let locationsCache = [];
+
+    document.getElementById('logout').addEventListener('click', () => {
+        localStorage.clear();
+        window.location.href = '/login';
+    });
+
+    document.getElementById('createPOBtn').addEventListener('click', createPO);
+
+    async function loadProductsAndLocations() {
+        try {
+            const [productsRes, locationsRes] = await Promise.all([
+                fetch('/api/products', { headers }),
+                fetch('/api/locations', { headers })
+            ]);
+
+            const productsJson = await productsRes.json();
+            const locationsJson = await locationsRes.json();
+
+            console.log('Products API Response:', productsJson);
+            console.log('Locations API Response:', locationsJson);
+
+            // ✅ data.content yapısını destekle
+            let rawProducts = productsJson;
+            if (productsJson.data !== undefined) {
+                rawProducts = productsJson.data.content !== undefined ? productsJson.data.content : productsJson.data;
+            }
+
+            let rawLocations = locationsJson;
+            if (locationsJson.data !== undefined) {
+                rawLocations = locationsJson.data.content !== undefined ? locationsJson.data.content : locationsJson.data;
+            }
+
+            productsCache = Array.isArray(rawProducts) ? rawProducts : [];
+            locationsCache = Array.isArray(rawLocations) ? rawLocations : [];
+
+            console.log('Products loaded:', productsCache.length, productsCache);
+            console.log('Locations loaded:', locationsCache.length, locationsCache);
+        } catch (e) {
+            console.error('Error loading products/locations', e);
+            productsCache = [];
+            locationsCache = [];
+        }
+    }
+
+    function formatPOStatus(status) {
+        if (!status) return 'N/A';
+        const s = status.toUpperCase();
+        if (s === 'DRAFT') return '<span class="status-draft">DRAFT</span>';
+        if (s === 'PENDING') return '<span class="status-pending">PENDING</span>';
+        if (s === 'APPROVED') return '<span class="status-approved">APPROVED</span>';
+        if (s === 'RECEIVED') return '<span class="status-received">RECEIVED</span>';
+        return s;
+    }
+
+    async function loadSuppliers() {
+        try {
+            const res = await fetch('/api/suppliers', { headers });
+            const result = await res.json();
+            const suppliers = result.data || result;
+
+            const select = document.getElementById('supplierSelect');
+            select.innerHTML = '<option value="">Select Supplier</option>';
+
+            if (!Array.isArray(suppliers)) return;
+
+            suppliers.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = s.name;
+                select.appendChild(opt);
+            });
+
+        } catch (e) {
+            console.error('Error loading suppliers', e);
+        }
+    }
+
+    async function loadWarehouses() {
+        try {
+            const res = await fetch('/api/warehouses', { headers });
+            const result = await res.json();
+            const warehouses = result.data || result;
+
+            const select = document.getElementById('poWarehouseSelect');
+            select.innerHTML = '<option value="">Select Warehouse</option>';
+
+            if (!Array.isArray(warehouses)) return;
+
+            warehouses.forEach(w => {
+                const opt = document.createElement('option');
+                opt.value = w.id;
+                opt.textContent = w.name;
+                select.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Error loading warehouses', e);
+        }
+    }
+
+    async function loadPurchaseOrders() {
+        try {
+            const res = await fetch('/api/purchase-orders', { headers });
+            const result = await res.json();
+            const pos = result.data || result;
+
+            const tbody = document.getElementById('poBody');
+            tbody.innerHTML = '';
+
+            if (!Array.isArray(pos) || pos.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">No purchase orders found</td></tr>';
+                return;
+            }
+
+            pos.forEach(po => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${po.orderNumber}</td>
+                    <td>${po.supplierName || 'N/A'}</td>
+                    <td>${po.warehouseName || 'N/A'}</td>
+                    <td>${formatPOStatus(po.status)}</td>
+                    <td>${po.orderDate || ''}</td>
+                    <td>${po.expectedDeliveryDate || ''}</td>
+                    <td>
+                        <button class="btn-info" onclick="openPoItemModal(${po.id}, '${po.orderNumber}')">
+                            Add Item
+                        </button>
+                    </td>
+                    <td class="action-buttons">
+                        <button class="btn-success" onclick="approvePO(${po.id})" ${po.status !== 'DRAFT' ? 'disabled' : ''}>Approve</button>
+                        <button class="btn-primary" onclick="receivePO(${po.id})" ${po.status !== 'APPROVED' ? 'disabled' : ''}>Receive</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+        } catch (e) {
+            console.error('Error loading purchase orders', e);
+        }
+    }
+
+    async function createPO() {
+        const supplierId = document.getElementById('supplierSelect').value;
+        const warehouseId = document.getElementById('poWarehouseSelect').value;
+        const orderDate = document.getElementById('poOrderDate').value;
+        const expectedDeliveryDate = document.getElementById('expectedDeliveryDate').value;
+
+        if (!supplierId || !warehouseId) {
+            alert('Supplier and Warehouse are required');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/purchase-orders', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    supplierId: parseInt(supplierId),
+                    warehouseId: parseInt(warehouseId),
+                    orderDate: orderDate || null,
+                    expectedDeliveryDate: expectedDeliveryDate || null
+                })
+            });
+            const result = await res.json();
+
+            if (res.ok && (result.success === undefined || result.success)) {
+                alert('Purchase order created');
+                document.getElementById('supplierSelect').value = '';
+                document.getElementById('poWarehouseSelect').value = '';
+                document.getElementById('poOrderDate').value = '';
+                document.getElementById('expectedDeliveryDate').value = '';
+                await loadPurchaseOrders();
+            } else {
+                alert(result.error || 'Failed to create purchase order');
+            }
+        } catch (e) {
+            console.error('Error creating PO', e);
+            alert('Failed to create purchase order');
+        }
+    }
+
+    function openPoItemModal(poId, orderNumber) {
+        document.getElementById('poItemOrderId').value = poId;
+        document.getElementById('poItemModalOrderNumber').textContent = '#' + orderNumber;
+
+        const productSelect = document.getElementById('poItemProduct');
+        const locationSelect = document.getElementById('poItemLocation');
+
+        productSelect.innerHTML = '<option value="">Select Product</option>';
+        locationSelect.innerHTML = '<option value="">Select Location</option>';
+
+        // Koruyucu kontrol
+        if (!Array.isArray(productsCache) || productsCache.length === 0) {
+            console.warn('No products available');
+        } else {
+            productsCache.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name;
+                productSelect.appendChild(opt);
+            });
+        }
+
+        if (!Array.isArray(locationsCache) || locationsCache.length === 0) {
+            console.warn('No locations available');
+        } else {
+            locationsCache.forEach(l => {
+                const opt = document.createElement('option');
+                opt.value = l.id;
+                opt.textContent = l.code;
+                locationSelect.appendChild(opt);
+            });
+        }
+
+        document.getElementById('poItemQuantity').value = 1;
+        document.getElementById('poItemUnitPrice').value = 10.00;
+        document.getElementById('poItemModal').style.display = 'block';
+        document.getElementById('poModalOverlay').style.display = 'block';
+    }
+
+    function closePoItemModal() {
+        document.getElementById('poItemModal').style.display = 'none';
+        document.getElementById('poModalOverlay').style.display = 'none';
+    }
+
+    document.getElementById('savePoItemBtn').addEventListener('click', async () => {
+        const poId = document.getElementById('poItemOrderId').value;
+        const productId = document.getElementById('poItemProduct').value;
+        const locationId = document.getElementById('poItemLocation').value;
+        const quantity = document.getElementById('poItemQuantity').value;
+        const unitPrice = document.getElementById('poItemUnitPrice').value;
+
+        if (!productId || !locationId || !quantity || !unitPrice) {
+            alert('Please fill all fields');
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/purchase-orders/${poId}/items`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    productId: Number(productId),
+                    locationId: Number(locationId),
+                    quantity: Number(quantity),
+                    unitPrice: Number(unitPrice)
+                })
+            });
+
+            const json = await res.json();
+
+            if (!res.ok || !json.success) {
+                alert('Failed to add item: ' + (json.error || res.status));
+                return;
+            }
+
+            alert('Item added to purchase order');
+            closePoItemModal();
+            await loadPurchaseOrders();
+        } catch (e) {
+            console.error('Error adding item', e);
+            alert('Failed to add item');
+        }
+    });
+
+    async function approvePO(id) {
+        try {
+            const res = await fetch(`/api/purchase-orders/${id}/approve`, {
+                method: 'POST',
+                headers
+            });
+            const result = await res.json();
+            if (res.ok && (result.success === undefined || result.success)) {
+                alert('Purchase order approved');
+                await loadPurchaseOrders();
+            } else {
+                alert(result.error || 'Failed to approve PO');
+            }
+        } catch (e) {
+            console.error('Error approving PO', e);
+        }
+    }
+
+    async function receivePO(id) {
+        try {
+            const res = await fetch(`/api/purchase-orders/${id}/receive`, {
+                method: 'POST',
+                headers
+            });
+            const result = await res.json();
+            if (res.ok && (result.success === undefined || result.success)) {
+                alert('Purchase order received');
+                await loadPurchaseOrders();
+            } else {
+                alert(result.error || 'Failed to receive PO');
+            }
+        } catch (e) {
+            console.error('Error receiving PO', e);
+        }
+    }
+
+    // Sayfa yüklendiğinde
+    (async function init() {
+        await loadSuppliers();
+        await loadWarehouses();
+        await loadProductsAndLocations();
+        await loadPurchaseOrders();
+    })();
+</script>
+</body>
+</html>
