@@ -1,10 +1,12 @@
--- Kullanıcı oluştur
-CREATE USER wmsuser WITH PASSWORD 'wms';
+DO
+$$
+BEGIN
+   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'wmsuser') THEN
+      CREATE ROLE wmsuser LOGIN PASSWORD 'wms';
+   END IF;
+END
+$$;
 
--- wmsdb'ye bağlan (zaten POSTGRES_DB ile oluşturulmuş)
-\c wmsdb
-
--- İzinleri ver
 GRANT ALL ON SCHEMA public TO wmsuser;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO wmsuser;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO wmsuser;
