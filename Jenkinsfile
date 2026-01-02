@@ -71,21 +71,21 @@ pipeline {
         // 4. ENTEGRASYON TESTLERİ ÇALIŞTIR VE RAPORLA (15 puan)
         // ============================================================
         stage('4 - Integration Tests') {
-            steps {
-                echo '========== 4. Entegrasyon testleri çalıştırılıyor =========='
-                sh '''
-                    mvn test \
-                    -Dtest=*IntegrationTest \
-                    -Dspring.profiles.active=test
-                '''
-            }
-            post {
-                always {
-                    junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
-                    echo '📊 Entegrasyon test raporları toplandı'
-                }
-            }
+    steps {
+        echo '========== 4. Entegrasyon testleri çalıştırılıyor =========='
+        sh '''
+            mvn test \
+            -Dtest=*IntegrationTest \
+            -Dspring.profiles.active=ci
+        '''
+    }
+    post {
+        always {
+            junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
+            echo '📊 Entegrasyon test raporları toplandı'
         }
+    }
+}
 
         // ============================================================
         // 5. SİSTEMİ DOCKER CONTAINER'DA ÇALIŞTIR (5 puan)
