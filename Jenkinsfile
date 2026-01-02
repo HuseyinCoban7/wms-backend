@@ -95,95 +95,67 @@ pipeline {
                         echo '🐘 PostgreSQL, Backend ve Selenium ayağa kaldırılıyor...'
                         sh '''
                             set -e
-                            
                             docker-compose build --no-cache backend
-                            
-                            docker-compose up -d wms-postgres backend selenium-chrome || {
-                              echo "❌ docker-compose up başarısız oldu. wms-postgres logları:"
-                              docker-compose logs --tail=100 wms-postgres || true
-                              echo "❌ wms-backend logları:"
-                              docker-compose logs --tail=100 wms-backend || true
-                              echo "❌ selenium-chrome logları:"
-                              docker-compose logs --tail=100 selenium-chrome || true
-                              exit 1
-                            }
-
+                            docker-compose up -d
                             echo "👉 docker-compose ps çıktısı:"
                             docker-compose ps
-                            echo "👉 wms-postgres son 50 satır log:"
-                            docker-compose logs --tail=50 wms-postgres || true
                         '''
 
-                        echo 'PostgreSQL hazır olması bekleniyor...'
-                        sh '''
-                            docker exec wms-postgres pg_isready -U postgres -d wmsdb && echo "✅ PostgreSQL hazır!" && exit 0
-                        '''
-
-                        echo 'Backend uygulaması hazır olması bekleniyor...'
+                        echo '⏳ Backend hazır olana kadar bekleniyor...'
                         sh '''
                             set -e
-                            TIMEOUT=120
+                            TIMEOUT=180   # toplam maksimum bekleme süresi (saniye)
                             ELAPSED=0
                             
                             while [ $ELAPSED -lt $TIMEOUT ]; do
-                                if curl -sSf http://localhost:8089/actuator/health > /dev/null 2>&1; then
+                                # actuator/health endpoint'ine istek at
+                                RESP=$(curl -s http://localhost:8089/actuator/health || echo "")
+                                
+                                echo "🔎 Health response: $RESP"
+                                
+                                # Eğer yanıt içinde "UP" geçiyorsa hazır kabul et
+                                echo "$RESP" | grep -q '"status":"UP"' && {
                                     echo "✅ Backend hazır! ($ELAPSED saniye)"
                                     exit 0
-                                fi
-                                echo "⏳ Backend bekleniyor... ($ELAPSED/$TIMEOUT saniye)"
+                                }
+                                
+                                echo "⏳ Backend henüz hazır değil... ($ELAPSED/$TIMEOUT saniye)"
                                 sleep 5
                                 ELAPSED=$((ELAPSED + 5))
                             done
                             
-                            echo "❌ Backend $TIMEOUT saniye içinde hazır olmadı"
+                            echo "❌ Backend $TIMEOUT saniye içinde hazır OLAMADI!"
                             echo "👉 Backend logları:"
                             docker-compose logs --tail=200 wms-backend || true
                             exit 1
                         '''
 
-                        echo 'Selenium hazır olması bekleniyor...'
+                        echo '⏳ Selenium hazır olana kadar bekleniyor...'
                         sh '''
                             set -e
-                            TIMEOUT=60
+                            TIMEOUT=90
                             ELAPSED=0
-                            
+
                             while [ $ELAPSED -lt $TIMEOUT ]; do
                                 if curl -sSf http://localhost:4444/wd/hub/status > /dev/null 2>&1; then
                                     echo "✅ Selenium hazır! ($ELAPSED saniye)"
                                     exit 0
                                 fi
-                                echo "⏳ Selenium bekleniyor... ($ELAPSED/$TIMEOUT saniye)"
+                                echo "⏳ Selenium henüz hazır değil... ($ELAPSED/$TIMEOUT saniye)"
                                 sleep 3
                                 ELAPSED=$((ELAPSED + 3))
                             done
-                            
-                            echo "❌ Selenium $TIMEOUT saniye içinde hazır olmadı"
+
+                            echo "❌ Selenium $TIMEOUT saniye içinde hazır OLAMADI!"
                             echo "👉 Selenium logları:"
                             docker-compose logs --tail=200 selenium-chrome || true
                             exit 1
                         '''
 
-                        echo '✅ Tüm servisler hazır!'
+                        echo '✅ Tüm servisler hazır, 6. stage\'e geçiliyor.'
                     } catch (err) {
-                        // 5. stage başarısız olsa bile pipeline devam etsin
-                        echo "⚠️ '5 - Run System in Docker' stage HATA aldı ama pipeline devam edecek: ${err}"
-                        currentBuild.result = 'UNSTABLE'
-
-                        // Debug için logları yine de basalım
-                        sh '''
-                            set +e
-                            echo "===== DEBUG: docker-compose ps ====="
-                            docker-compose ps || true
-
-                            echo "===== DEBUG: wms-backend FULL LOGS ====="
-                            docker-compose logs wms-backend || true
-
-                            echo "===== DEBUG: wms-postgres LAST 50 ====="
-                            docker-compose logs --tail=50 wms-postgres || true
-
-                            echo "===== DEBUG: selenium-chrome LAST 50 ====="
-                            docker-compose logs --tail=50 selenium-chrome || true
-                        '''
+                        echo "❌ '5 - Run System in Docker' stage BAŞARISIZ: ${err}"
+                        error("Backend veya Selenium ayağa kalkamadığı için pipeline durduruldu.")
                     }
                 }
             }
