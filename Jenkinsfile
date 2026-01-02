@@ -1,8 +1,6 @@
 pipeline {
     agent any
 
-    
-
     environment {
         APP_NAME = "wms-backend"
         APP_PORT = "8089"
@@ -14,7 +12,6 @@ pipeline {
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
-
 
     stages {
 
@@ -71,122 +68,122 @@ pipeline {
         // 4. ENTEGRASYON TESTLERİ ÇALIŞTIR VE RAPORLA (15 puan)
         // ============================================================
         stage('4 - Integration Tests') {
-    steps {
-        echo '========== 4. Entegrasyon testleri çalıştırılıyor =========='
-        sh '''
-            mvn test \
-            -Dtest=*IntegrationTest \
-            -Dspring.profiles.active=ci
-        '''
-    }
-    post {
-        always {
-            junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
-            echo '📊 Entegrasyon test raporları toplandı'
-        }
-    }
-}
-
-       stage('5 - Run System in Docker') {
-    steps {
-        script {
-            try {
-                echo '🐳 Docker container\'ları temizleniyor...'
-                sh 'docker rm -f wms-postgres wms-backend selenium-chrome || true'
-                sh 'docker-compose down -v || true'
-
-                echo '🐘 PostgreSQL ve Backend ayağa kaldırılıyor...'
+            steps {
+                echo '========== 4. Entegrasyon testleri çalıştırılıyor =========='
                 sh '''
-                    set -e
-                    
-                    docker-compose build --no-cache backend
-                    
-                    docker-compose up -d wms-postgres backend || {
-                      echo "❌ docker-compose up başarısız oldu. wms-postgres logları:"
-                      docker-compose logs --tail=100 wms-postgres || true
-                      echo "❌ wms-backend logları:"
-                      docker-compose logs --tail=100 wms-backend || true
-                      exit 1
-                    }
-
-                    echo "👉 docker-compose ps çıktısı:"
-                    docker-compose ps
-                    echo "👉 wms-postgres son 50 satır log:"
-                    docker-compose logs --tail=50 wms-postgres || true
-                '''
-
-                echo 'PostgreSQL hazır olması bekleniyor...'
-                sh '''
-                    docker exec wms-postgres pg_isready -U postgres -d wmsdb && echo "✅ PostgreSQL hazır!" && exit 0
-                '''
-
-                echo 'Backend uygulaması hazır olması bekleniyor...'
-                sh '''
-                    set -e
-                    TIMEOUT=120
-                    ELAPSED=0
-                    
-                    while [ $ELAPSED -lt $TIMEOUT ]; do
-                        if curl -sSf http://localhost:8089/actuator/health > /dev/null 2>&1; then
-                            echo "✅ Backend hazır! ($ELAPSED saniye)"
-                            exit 0
-                        fi
-                        echo "⏳ Backend bekleniyor... ($ELAPSED/$TIMEOUT saniye)"
-                        sleep 5
-                        ELAPSED=$((ELAPSED + 5))
-                    done
-                    
-                    echo "❌ Backend $TIMEOUT saniye içinde hazır olmadı"
-                    echo "👉 Backend logları:"
-                    docker-compose logs --tail=200 wms-backend || true
-                    exit 1
-                '''
-
-                echo '🌐 Selenium Chrome ayağa kaldırılıyor...'
-                sh 'docker-compose up -d selenium-chrome'
-
-                echo 'Selenium hazır olması bekleniyor...'
-                sh '''
-                    set -e
-                    TIMEOUT=60
-                    ELAPSED=0
-                    
-                    while [ $ELAPSED -lt $TIMEOUT ]; do
-                        if curl -sSf http://localhost:4444/wd/hub/status > /dev/null 2>&1; then
-                            echo "✅ Selenium hazır! ($ELAPSED saniye)"
-                            exit 0
-                        fi
-                        echo "⏳ Selenium bekleniyor... ($ELAPSED/$TIMEOUT saniye)"
-                        sleep 3
-                        ELAPSED=$((ELAPSED + 3))
-                    done
-                    
-                    echo "❌ Selenium $TIMEOUT saniye içinde hazır olmadı"
-                    exit 1
-                '''
-
-                echo '✅ Tüm servisler hazır!'
-            } catch (err) {
-                // 5. stage başarısız olsa bile pipeline devam etsin
-                echo "⚠️ '5 - Run System in Docker' stage HATA aldı ama pipeline devam edecek: ${err}"
-                currentBuild.result = 'UNSTABLE'
-
-                // Debug için logları yine de basalım
-                sh '''
-                    set +e
-                    echo "===== DEBUG: docker-compose ps ====="
-                    docker-compose ps || true
-
-                    echo "===== DEBUG: wms-backend FULL LOGS ====="
-                    docker-compose logs wms-backend || true
-
-                    echo "===== DEBUG: wms-postgres LAST 50 ====="
-                    docker-compose logs --tail=50 wms-postgres || true
+                    mvn test \
+                    -Dtest=*IntegrationTest \
+                    -Dspring.profiles.active=ci
                 '''
             }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
+                    echo '📊 Entegrasyon test raporları toplandı'
+                }
+            }
         }
-    }
-}
+
+        stage('5 - Run System in Docker') {
+            steps {
+                script {
+                    try {
+                        echo '🐳 Docker container\'ları temizleniyor...'
+                        sh 'docker rm -f wms-postgres wms-backend selenium-chrome || true'
+                        sh 'docker-compose down -v || true'
+
+                        echo '🐘 PostgreSQL ve Backend ayağa kaldırılıyor...'
+                        sh '''
+                            set -e
+                            
+                            docker-compose build --no-cache backend
+                            
+                            docker-compose up -d wms-postgres backend || {
+                              echo "❌ docker-compose up başarısız oldu. wms-postgres logları:"
+                              docker-compose logs --tail=100 wms-postgres || true
+                              echo "❌ wms-backend logları:"
+                              docker-compose logs --tail=100 wms-backend || true
+                              exit 1
+                            }
+
+                            echo "👉 docker-compose ps çıktısı:"
+                            docker-compose ps
+                            echo "👉 wms-postgres son 50 satır log:"
+                            docker-compose logs --tail=50 wms-postgres || true
+                        '''
+
+                        echo 'PostgreSQL hazır olması bekleniyor...'
+                        sh '''
+                            docker exec wms-postgres pg_isready -U postgres -d wmsdb && echo "✅ PostgreSQL hazır!" && exit 0
+                        '''
+
+                        echo 'Backend uygulaması hazır olması bekleniyor...'
+                        sh '''
+                            set -e
+                            TIMEOUT=120
+                            ELAPSED=0
+                            
+                            while [ $ELAPSED -lt $TIMEOUT ]; do
+                                if curl -sSf http://localhost:8089/actuator/health > /dev/null 2>&1; then
+                                    echo "✅ Backend hazır! ($ELAPSED saniye)"
+                                    exit 0
+                                fi
+                                echo "⏳ Backend bekleniyor... ($ELAPSED/$TIMEOUT saniye)"
+                                sleep 5
+                                ELAPSED=$((ELAPSED + 5))
+                            done
+                            
+                            echo "❌ Backend $TIMEOUT saniye içinde hazır olmadı"
+                            echo "👉 Backend logları:"
+                            docker-compose logs --tail=200 wms-backend || true
+                            exit 1
+                        '''
+
+                        echo '🌐 Selenium Chrome ayağa kaldırılıyor...'
+                        sh 'docker-compose up -d selenium-chrome'
+
+                        echo 'Selenium hazır olması bekleniyor...'
+                        sh '''
+                            set -e
+                            TIMEOUT=60
+                            ELAPSED=0
+                            
+                            while [ $ELAPSED -lt $TIMEOUT ]; do
+                                if curl -sSf http://localhost:4444/wd/hub/status > /dev/null 2>&1; then
+                                    echo "✅ Selenium hazır! ($ELAPSED saniye)"
+                                    exit 0
+                                fi
+                                echo "⏳ Selenium bekleniyor... ($ELAPSED/$TIMEOUT saniye)"
+                                sleep 3
+                                ELAPSED=$((ELAPSED + 3))
+                            done
+                            
+                            echo "❌ Selenium $TIMEOUT saniye içinde hazır olmadı"
+                            exit 1
+                        '''
+
+                        echo '✅ Tüm servisler hazır!'
+                    } catch (err) {
+                        // 5. stage başarısız olsa bile pipeline devam etsin
+                        echo "⚠️ '5 - Run System in Docker' stage HATA aldı ama pipeline devam edecek: ${err}"
+                        currentBuild.result = 'UNSTABLE'
+
+                        // Debug için logları yine de basalım
+                        sh '''
+                            set +e
+                            echo "===== DEBUG: docker-compose ps ====="
+                            docker-compose ps || true
+
+                            echo "===== DEBUG: wms-backend FULL LOGS ====="
+                            docker-compose logs wms-backend || true
+
+                            echo "===== DEBUG: wms-postgres LAST 50 ====="
+                            docker-compose logs --tail=50 wms-postgres || true
+                        '''
+                    }
+                }
+            }
+        }
 
         
         // ============================================================
@@ -201,7 +198,7 @@ pipeline {
                     -Dtest=LoginE2ETest#testLogin_Success_AdminRedirectsToAdminDashboard \
                     -Dspring.profiles.active=test \
                     -Dapp.url=http://localhost:8089 \
-                    -Dselenium.remote.url=http://localhost:4444
+                    -Dselenium.remote.url=http://selenium-chrome:4444
                 '''
             }
             post {
@@ -220,7 +217,7 @@ pipeline {
                     -Dtest=LoginE2ETest#testLogin_InvalidCredentials_ShowsError \
                     -Dspring.profiles.active=test \
                     -Dapp.url=http://localhost:8089 \
-                    -Dselenium.remote.url=http://localhost:4444
+                    -Dselenium.remote.url=http://selenium-chrome:4444
                 '''
             }
             post {
@@ -239,7 +236,7 @@ pipeline {
                     -Dtest=ProductE2ETest \
                     -Dspring.profiles.active=test \
                     -Dapp.url=http://localhost:8089 \
-                    -Dselenium.remote.url=http://localhost:4444
+                    -Dselenium.remote.url=http://selenium-chrome:4444
                 '''
             }
             post {
@@ -271,7 +268,7 @@ pipeline {
                     -Dtest=LoginE2ETest#testLogin_Success_StandardUserRedirectsToUserDashboard \
                     -Dspring.profiles.active=test \
                     -Dapp.url=http://localhost:8089 \
-                    -Dselenium.remote.url=http://localhost:4444
+                    -Dselenium.remote.url=http://selenium-chrome:4444
                 '''
             }
             post {
@@ -295,7 +292,7 @@ pipeline {
                     -Dtest=LogoutE2ETest \
                     -Dspring.profiles.active=test \
                     -Dapp.url=http://localhost:8089 \
-                    -Dselenium.remote.url=http://localhost:4444
+                    -Dselenium.remote.url=http://selenium-chrome:4444
                 '''
             }
             post {
@@ -319,7 +316,7 @@ pipeline {
                     -Dtest=ProductSearchE2ETest \
                     -Dspring.profiles.active=test \
                     -Dapp.url=http://localhost:8089 \
-                    -Dselenium.remote.url=http://localhost:4444
+                    -Dselenium.remote.url=http://selenium-chrome:4444
                 '''
             }
             post {
@@ -343,7 +340,7 @@ pipeline {
                     -Dtest=StockE2ETest \
                     -Dspring.profiles.active=test \
                     -Dapp.url=http://localhost:8089 \
-                    -Dselenium.remote.url=http://localhost:4444
+                    -Dselenium.remote.url=http://selenium-chrome:4444
                 '''
             }
             post {
