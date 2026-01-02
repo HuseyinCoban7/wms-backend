@@ -5,11 +5,11 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate    # ilk etapta sorun çıkarsa 'update' dene
+      ddl-auto: validate
     show-sql: true
 
   flyway:
-    enabled: true           # migration'ların düzgün olduğundan emin ol
+    enabled: true
 
 app:
   jwt:
