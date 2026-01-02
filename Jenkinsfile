@@ -87,68 +87,91 @@ pipeline {
     }
 }
 
-       // ============================================================
-        // 5. SİSTEMİ DOCKER CONTAINER'DA ÇALIŞTIR (5 puan)
-        // ============================================================
-        stage('5 - Run System in Docker') {
-            steps {
-                echo '========== 5. Docker Compose ile sistem ayağa kaldırılıyor =========='
-                script {
-                    // Eski container'ları zorla temizle (doğru container adlarıyla)
-                    sh '''
-                        docker rm -f wms-postgres wms-backend selenium-chrome || true
-                        docker-compose down -v || true
-                    '''
+       stage('5 - Run System in Docker') {
+    steps {
+        echo '========== 5. Docker Compose ile sistem ayağa kaldırılıyor =========='
+        script {
+            // 1) Eski container'ları temizle
+            sh '''
+                echo "🧹 Eski container'lar temizleniyor..."
+                docker rm -f wms-postgres wms-backend selenium-chrome || true
+                docker-compose down -v || true
+            '''
 
-                    // PostgreSQL ve Backend'i ayağa kaldır
-                    sh 'docker-compose up -d wms-postgres backend'
-
-                    // PostgreSQL'in hazır olmasını bekle
-                    echo 'PostgreSQL hazır olması bekleniyor...'
-                    sh '''
-                        for i in {1..30}; do
-                            if docker exec wms-postgres pg_isready -U wmsuser -d wmsdb > /dev/null 2>&1; then
-                                echo "✅ PostgreSQL hazır!"
-                                break
-                            fi
-                            echo "Bekleniyor... ($i/30)"
-                            sleep 2
-                        done
-                    '''
-
-                    // Backend'in hazır olmasını bekle
-                    echo 'Backend uygulaması hazır olması bekleniyor...'
-                    sh '''
-                        for i in {1..60}; do
-                            if curl -sSf http://localhost:8089/actuator/health > /dev/null 2>&1; then
-                                echo "✅ Backend hazır!"
-                                break
-                            fi
-                            echo "Bekleniyor... ($i/60)"
-                            sleep 2
-                        done
-                    '''
-
-                    // Selenium container'ı ayağa kaldır
-                    sh 'docker-compose up -d selenium-chrome'
-
-                    echo 'Selenium hazır olması bekleniyor...'
-                    sh '''
-                        for i in {1..20}; do
-                            if curl -sSf http://localhost:4444/wd/hub/status > /dev/null 2>&1; then
-                                echo "✅ Selenium hazır!"
-                                break
-                            fi
-                            echo "Bekleniyor... ($i/20)"
-                            sleep 2
-                        done
-                    '''
-
-                    // Container durumlarını göster
-                    sh 'docker-compose ps'
+            // 2) PostgreSQL + Backend ayağa kaldır
+            echo '🐘 PostgreSQL ve Backend ayağa kaldırılıyor...'
+            sh '''
+                set -e
+                docker-compose up -d wms-postgres backend || {
+                  echo "❌ docker-compose up başarısız oldu. wms-postgres logları:"
+                  docker-compose logs --tail=100 wms-postgres || true
+                  echo "❌ wms-backend logları:"
+                  docker-compose logs --tail=100 wms-backend || true
+                  exit 1
                 }
-            }
+
+                echo "👉 docker-compose ps çıktısı:"
+                docker-compose ps
+                echo "👉 wms-postgres son 50 satır log:"
+                docker-compose logs --tail=50 wms-postgres || true
+            '''
+
+            // 3) PostgreSQL hazır mı?
+            echo 'PostgreSQL hazır olması bekleniyor...'
+            sh '''
+                for i in {1..30}; do
+                    if docker exec wms-postgres pg_isready -U wmsuser -d wmsdb > /dev/null 2>&1; then
+                        echo "✅ PostgreSQL hazır!"
+                        exit 0
+                    fi
+                    echo "Bekleniyor... ($i/30)"
+                    sleep 2
+                done
+                echo "❌ PostgreSQL zaman aşımına uğradı"
+                docker-compose logs wms-postgres || true
+                exit 1
+            '''
+
+            // 4) Backend health check
+            echo 'Backend uygulaması hazır olması bekleniyor...'
+            sh '''
+                for i in {1..60}; do
+                    if curl -sSf http://localhost:8089/actuator/health > /dev/null 2>&1; then
+                        echo "✅ Backend hazır!"
+                        exit 0
+                    fi
+                    echo "Bekleniyor... ($i/60)"
+                    sleep 2
+                done
+                echo "❌ Backend zaman aşımına uğradı"
+                docker-compose logs wms-backend || true
+                exit 1
+            '''
+
+            // 5) Selenium ayağa kaldır
+            echo '🧪 Selenium container ayağa kaldırılıyor...'
+            sh 'docker-compose up -d selenium-chrome'
+
+            echo 'Selenium hazır olması bekleniyor...'
+            sh '''
+                for i in {1..20}; do
+                    if curl -sSf http://localhost:4444/wd/hub/status > /dev/null 2>&1; then
+                        echo "✅ Selenium hazır!"
+                        exit 0
+                    fi
+                    echo "Bekleniyor... ($i/20)"
+                    sleep 2
+                done
+                echo "❌ Selenium zaman aşımına uğradı"
+                docker-compose logs selenium-chrome || true
+                exit 1
+            '''
+
+            // Son durum
+            sh 'docker-compose ps'
         }
+    }
+}
 
         // ============================================================
         // 6. ÇALIŞAN SİSTEM ÜZERİNDE E2E TEST SENARYOLARI (55 puan)
