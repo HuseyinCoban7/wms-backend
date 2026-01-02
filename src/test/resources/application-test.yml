@@ -1,22 +1,12 @@
-spring:
-  datasource:
-    url: jdbc:tc:postgresql:15-alpine:///testdb
-    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+spring.datasource.url=jdbc:h2:mem:wmsdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+spring.datasource.username=sa
+spring.datasource.password=
+spring.datasource.driver-class-name=org.h2.Driver
 
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    show-sql: true
+# JPA
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+spring.jpa.show-sql=false
 
-  flyway:
-    enabled: true
-
-app:
-  jwt:
-    secret: testSecretKeyForJwtTokenGenerationInTestEnvironment123456
-    expiration-ms: 3600000
-
-logging:
-  level:
-    root: INFO
-    com.wms: DEBUG
+# Flyway testlerde kapalı olsun (migrations gerçek PostgreSQL'e göre yazılıysa)
+spring.flyway.enabled=false
