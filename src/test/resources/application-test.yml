@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:15-alpine:///testdb
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate    # ilk etapta sorun çıkarsa 'update' dene
+    show-sql: true
+
+  flyway:
+    enabled: true           # migration'ların düzgün olduğundan emin ol
+
+app:
+  jwt:
+    secret: testSecretKeyForJwtTokenGenerationInTestEnvironment123456
+    expiration-ms: 3600000
+
+logging:
+  level:
+    root: INFO
+    com.wms: DEBUG
