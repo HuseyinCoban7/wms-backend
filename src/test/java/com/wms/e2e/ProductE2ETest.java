@@ -1,38 +1,49 @@
 package com.wms.e2e;
 
 import org.junit.jupiter.api.*;
-import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.*;
+import org.openqa.selenium.remote.RemoteWebDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles("test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class ProductE2ETest {
 
-    @LocalServerPort
-    private int port;
-
     private static WebDriver driver;
     private static WebDriverWait wait;
+    private static String baseUrl;
+    private static String seleniumUrl;
 
     @BeforeAll
-    static void setUpDriver() {
+    static void setUpDriver() throws MalformedURLException {
+        baseUrl = System.getProperty("app.url", "http://localhost:8089");
+        seleniumUrl = System.getProperty("selenium.remote.url", "http://localhost:4444");
+
+        System.out.println("🌐 App URL: " + baseUrl);
+        System.out.println("🔗 Selenium URL: " + seleniumUrl);
+
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
-        driver = new ChromeDriver(options);
+        options.addArguments("--headless=new");
+        options.addArguments("--disable-gpu");
+        options.addArguments("--window-size=1920,1080");
+
+        driver = new RemoteWebDriver(
+                new URL(seleniumUrl + "/wd/hub"),
+                options
+        );
         wait = new WebDriverWait(driver, Duration.ofSeconds(10));
     }
 
@@ -43,9 +54,8 @@ class ProductE2ETest {
         }
     }
 
-    @BeforeEach
-    void login() {
-        driver.get("http://localhost:" + port + "/login");
+    private void loginAsAdmin() {
+        driver.get(baseUrl + "/login");
 
         WebElement emailInput = wait.until(ExpectedConditions.presenceOfElementLocated(By.id("email")));
         WebElement passwordInput = driver.findElement(By.id("password"));
@@ -54,17 +64,21 @@ class ProductE2ETest {
         passwordInput.sendKeys("Admin123!");
         driver.findElement(By.cssSelector("button[type='submit']")).click();
 
-        // Admin için /admin, diğer roller için /products olabilir
         wait.until(ExpectedConditions.or(
                 ExpectedConditions.urlContains("/admin"),
                 ExpectedConditions.urlContains("/products")
         ));
     }
 
+    @BeforeEach
+    void login() {
+        loginAsAdmin();
+    }
+
     @Test
     @Order(1)
     void testProductPage_Loads() {
-        driver.get("http://localhost:" + port + "/products");
+        driver.get(baseUrl + "/products");
 
         WebElement table = wait.until(ExpectedConditions.presenceOfElementLocated(By.id("productsTable")));
         WebElement createButton = driver.findElement(By.id("createProductBtn"));
@@ -76,7 +90,7 @@ class ProductE2ETest {
     @Test
     @Order(2)
     void testCreateProduct_Success() {
-        driver.get("http://localhost:" + port + "/products");
+        driver.get(baseUrl + "/products");
 
         WebElement createButton = wait.until(ExpectedConditions.elementToBeClickable(By.id("createProductBtn")));
         createButton.click();
@@ -102,7 +116,7 @@ class ProductE2ETest {
     @Test
     @Order(3)
     void testSearchProduct() {
-        driver.get("http://localhost:" + port + "/products");
+        driver.get(baseUrl + "/products");
 
         WebElement searchInput = wait.until(ExpectedConditions.presenceOfElementLocated(By.id("searchInput")));
         searchInput.sendKeys("Laptop");
