@@ -88,8 +88,12 @@ pipeline {
             steps {
                 script {
                     try {
-                        echo '🐳 Docker container\'ları temizleniyor...'
-                        sh 'docker rm -f wms-postgres wms-backend selenium-chrome || true'
+                        echo '🐳 Eski container\'ları temizleniyor...'
+                        sh '''
+                            docker ps -a --filter "name=selenium-chrome" -q | xargs -r docker rm -f || true
+                            docker ps -a --filter "name=wms-backend" -q | xargs -r docker rm -f || true
+                            docker ps -a --filter "name=wms-postgres" -q | xargs -r docker rm -f || true
+                        '''
                         sh 'docker-compose down -v || true'
 
                         echo '🐘 PostgreSQL, Backend ve Selenium ayağa kaldırılıyor...'
@@ -104,16 +108,14 @@ pipeline {
                         echo '⏳ Backend hazır olana kadar bekleniyor...'
                         sh '''
                             set -e
-                            TIMEOUT=180   # toplam maksimum bekleme süresi (saniye)
+                            TIMEOUT=180
                             ELAPSED=0
                             
                             while [ $ELAPSED -lt $TIMEOUT ]; do
-                                # actuator/health endpoint'ine istek at
                                 RESP=$(curl -s http://localhost:8089/actuator/health || echo "")
                                 
                                 echo "🔎 Health response: $RESP"
                                 
-                                # Eğer yanıt içinde "UP" geçiyorsa hazır kabul et
                                 echo "$RESP" | grep -q '"status":"UP"' && {
                                     echo "✅ Backend hazır! ($ELAPSED saniye)"
                                     exit 0
