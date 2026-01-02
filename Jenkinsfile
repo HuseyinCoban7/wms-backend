@@ -87,15 +87,18 @@ pipeline {
     }
 }
 
-        // ============================================================
+       // ============================================================
         // 5. SİSTEMİ DOCKER CONTAINER'DA ÇALIŞTIR (5 puan)
         // ============================================================
         stage('5 - Run System in Docker') {
             steps {
                 echo '========== 5. Docker Compose ile sistem ayağa kaldırılıyor =========='
                 script {
-                    // Önceki container'ları temizle
-                    sh 'docker-compose down -v || true'
+                    // Eski container'ları zorla temizle (çakışma önlemi)
+                    sh '''
+                        docker rm -f wms-postgres backend selenium-chrome || true
+                        docker-compose down -v || true
+                    '''
 
                     // PostgreSQL ve Backend'i ayağa kaldır
                     sh 'docker-compose up -d wms-postgres backend'
@@ -104,7 +107,7 @@ pipeline {
                     echo 'PostgreSQL hazır olması bekleniyor...'
                     sh '''
                         for i in {1..30}; do
-                            if docker exec wms-postgres pg_isready -U postgres -d wmsdb > /dev/null 2>&1; then
+                            if docker exec wms-postgres pg_isready -U wmsuser -d wmsdb > /dev/null 2>&1; then
                                 echo "✅ PostgreSQL hazır!"
                                 break
                             fi
@@ -130,7 +133,16 @@ pipeline {
                     sh 'docker-compose up -d selenium-chrome'
 
                     echo 'Selenium hazır olması bekleniyor...'
-                    sh 'sleep 10'
+                    sh '''
+                        for i in {1..20}; do
+                            if curl -sSf http://localhost:4444/wd/hub/status > /dev/null 2>&1; then
+                                echo "✅ Selenium hazır!"
+                                break
+                            fi
+                            echo "Bekleniyor... ($i/20)"
+                            sleep 2
+                        done
+                    '''
 
                     // Container durumlarını göster
                     sh 'docker-compose ps'
