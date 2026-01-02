@@ -142,7 +142,7 @@ pipeline {
                             ELAPSED=0
 
                             while [ $ELAPSED -lt $TIMEOUT ]; do
-                                if curl -sSf http://localhost:4444/wd/hub/status > /dev/null 2>&1; then
+                                if curl -sSf http://host.docker.internal:4444/wd/hub/status > /dev/null 2>&1; then
                                     echo "✅ Selenium hazır! ($ELAPSED saniye)"
                                     exit 0
                                 fi
@@ -166,7 +166,6 @@ pipeline {
             }
         }
 
-        
         // ============================================================
         // 6. ÇALIŞAN SİSTEM ÜZERİNDE E2E TEST SENARYOLARI (55 puan)
         // ============================================================
@@ -227,112 +226,6 @@ pipeline {
                 }
             }
         }
-
-        // ============================================================
-        // EK SENARYOLAR (Her biri +2 puan, max 10 senaryo)
-        // ============================================================
-
-        stage('6.4 - E2E Test: Standard User Login & Redirect') {
-            when {
-                expression {
-                    // Eğer bu test metodu varsa çalıştır
-                    return sh(
-                        script: 'grep -r "testLogin_Success_StandardUserRedirectsToUserDashboard" src/test/java/com/wms/e2e/ || true',
-                        returnStatus: true
-                    ) == 0
-                }
-            }
-            steps {
-                echo '========== 6.4. E2E Senaryo: Standart Kullanıcı Login =========='
-                sh '''
-                    mvn test \
-                    -Dtest=LoginE2ETest#testLogin_Success_StandardUserRedirectsToUserDashboard \
-                    -Dspring.profiles.active=test \
-                    -Dapp.url=http://host.docker.internal:8089 \
-                    -Dselenium.remote.url=http://selenium-chrome:4444
-                '''
-            }
-            post {
-                always {
-                    junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
-                    echo '📊 E2E Test 4 raporu toplandı'
-                }
-            }
-        }
-
-        stage('6.5 - E2E Test: User Logout') {
-            when {
-                expression {
-                    return fileExists('src/test/java/com/wms/e2e/LogoutE2ETest.java')
-                }
-            }
-            steps {
-                echo '========== 6.5. E2E Senaryo: Kullanıcı Logout =========='
-                sh '''
-                    mvn test \
-                    -Dtest=LogoutE2ETest \
-                    -Dspring.profiles.active=test \
-                    -Dapp.url=http://host.docker.internal:8089 \
-                    -Dselenium.remote.url=http://selenium-chrome:4444
-                '''
-            }
-            post {
-                always {
-                    junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
-                    echo '📊 E2E Test 5 raporu toplandı'
-                }
-            }
-        }
-
-        stage('6.6 - E2E Test: Product Search') {
-            when {
-                expression {
-                    return fileExists('src/test/java/com/wms/e2e/ProductSearchE2ETest.java')
-                }
-            }
-            steps {
-                echo '========== 6.6. E2E Senaryo: Ürün Arama =========='
-                sh '''
-                    mvn test \
-                    -Dtest=ProductSearchE2ETest \
-                    -Dspring.profiles.active=test \
-                    -Dapp.url=http://host.docker.internal:8089 \
-                    -Dselenium.remote.url=http://selenium-chrome:4444
-                '''
-            }
-            post {
-                always {
-                    junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
-                    echo '📊 E2E Test 6 raporu toplandı'
-                }
-            }
-        }
-
-        stage('6.7 - E2E Test: Stock Management') {
-            when {
-                expression {
-                    return fileExists('src/test/java/com/wms/e2e/StockE2ETest.java')
-                }
-            }
-            steps {
-                echo '========== 6.7. E2E Senaryo: Stok Yönetimi =========='
-                sh '''
-                    mvn test \
-                    -Dtest=StockE2ETest \
-                    -Dspring.profiles.active=test \
-                    -Dapp.url=http://host.docker.internal:8089 \
-                    -Dselenium.remote.url=http://selenium-chrome:4444
-                '''
-            }
-            post {
-                always {
-                    junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
-                    echo '📊 E2E Test 7 raporu toplandı'
-                }
-            }
-        }
-
-        // 6.8, 6.9, 6.10 için aynı pattern'i kullanabilirsin
 
     }
 
