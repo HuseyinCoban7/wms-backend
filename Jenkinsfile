@@ -178,7 +178,7 @@ pipeline {
                     -Dtest=LoginE2ETest#testLogin_Success_AdminRedirectsToAdminDashboard \
                     -Dspring.profiles.active=test \
                     -Dapp.url=http://host.docker.internal:8089 \
-                    -Dselenium.remote.url=http://selenium-chrome:4444
+                    -Dselenium.remote.url=http://host.docker.internal:4444
                 '''
             }
             post {
@@ -197,7 +197,7 @@ pipeline {
                     -Dtest=LoginE2ETest#testLogin_InvalidCredentials_ShowsError \
                     -Dspring.profiles.active=test \
                     -Dapp.url=http://host.docker.internal:8089 \
-                    -Dselenium.remote.url=http://selenium-chrome:4444
+                    -Dselenium.remote.url=http://host.docker.internal:4444
                 '''
             }
             post {
@@ -216,7 +216,7 @@ pipeline {
                     -Dtest=ProductE2ETest \
                     -Dspring.profiles.active=test \
                     -Dapp.url=http://host.docker.internal:8089 \
-                    -Dselenium.remote.url=http://selenium-chrome:4444
+                    -Dselenium.remote.url=http://host.docker.internal:4444
                 '''
             }
             post {
@@ -226,7 +226,6 @@ pipeline {
                 }
             }
         }
-
     }
 
     post {
