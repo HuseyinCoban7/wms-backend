@@ -120,7 +120,7 @@ pipeline {
             echo 'PostgreSQL hazır olması bekleniyor...'
             sh '''
                 for i in {1..30}; do
-                    if docker exec wms-postgres pg_isready -U wmsuser -d wmsdb > /dev/null 2>&1; then
+                    if docker exec wms-postgres pg_isready -U postgres -d wmsdb > /dev/null 2>&1; then
                         echo "✅ PostgreSQL hazır!"
                         exit 0
                     fi
