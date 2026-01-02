@@ -84,6 +84,9 @@ pipeline {
             }
         }
 
+        // ============================================================
+        // 5. SİSTEMİ DOCKER'DA AYAĞA KALDIR (5 puan)
+        // ============================================================
         stage('5 - Run System in Docker') {
             steps {
                 script {
@@ -112,14 +115,14 @@ pipeline {
                             ELAPSED=0
                             
                             while [ $ELAPSED -lt $TIMEOUT ]; do
-                                RESP=$(curl -s http://localhost:8089/actuator/health || echo "")
+                                echo "---- CURL TRY (ELAPSED=$ELAPSED) ----"
+                                curl -sS http://host.docker.internal:8089/actuator/health || echo "curl FAILED"
+                                echo "-------------------------------------"
                                 
-                                echo "🔎 Health response: $RESP"
-                                
-                                echo "$RESP" | grep -q '"status":"UP"' && {
+                                if curl -sf http://host.docker.internal:8089/actuator/health > /dev/null 2>&1; then
                                     echo "✅ Backend hazır! ($ELAPSED saniye)"
                                     exit 0
-                                }
+                                fi
                                 
                                 echo "⏳ Backend henüz hazır değil... ($ELAPSED/$TIMEOUT saniye)"
                                 sleep 5
@@ -128,7 +131,7 @@ pipeline {
                             
                             echo "❌ Backend $TIMEOUT saniye içinde hazır OLAMADI!"
                             echo "👉 Backend logları:"
-                            docker-compose logs --tail=200 wms-backend || true
+                            docker-compose logs --tail=200 backend || true
                             exit 1
                         '''
 
@@ -175,7 +178,7 @@ pipeline {
                     mvn test \
                     -Dtest=LoginE2ETest#testLogin_Success_AdminRedirectsToAdminDashboard \
                     -Dspring.profiles.active=test \
-                    -Dapp.url=http://localhost:8089 \
+                    -Dapp.url=http://host.docker.internal:8089 \
                     -Dselenium.remote.url=http://selenium-chrome:4444
                 '''
             }
@@ -194,7 +197,7 @@ pipeline {
                     mvn test \
                     -Dtest=LoginE2ETest#testLogin_InvalidCredentials_ShowsError \
                     -Dspring.profiles.active=test \
-                    -Dapp.url=http://localhost:8089 \
+                    -Dapp.url=http://host.docker.internal:8089 \
                     -Dselenium.remote.url=http://selenium-chrome:4444
                 '''
             }
@@ -213,7 +216,7 @@ pipeline {
                     mvn test \
                     -Dtest=ProductE2ETest \
                     -Dspring.profiles.active=test \
-                    -Dapp.url=http://localhost:8089 \
+                    -Dapp.url=http://host.docker.internal:8089 \
                     -Dselenium.remote.url=http://selenium-chrome:4444
                 '''
             }
@@ -245,7 +248,7 @@ pipeline {
                     mvn test \
                     -Dtest=LoginE2ETest#testLogin_Success_StandardUserRedirectsToUserDashboard \
                     -Dspring.profiles.active=test \
-                    -Dapp.url=http://localhost:8089 \
+                    -Dapp.url=http://host.docker.internal:8089 \
                     -Dselenium.remote.url=http://selenium-chrome:4444
                 '''
             }
@@ -269,7 +272,7 @@ pipeline {
                     mvn test \
                     -Dtest=LogoutE2ETest \
                     -Dspring.profiles.active=test \
-                    -Dapp.url=http://localhost:8089 \
+                    -Dapp.url=http://host.docker.internal:8089 \
                     -Dselenium.remote.url=http://selenium-chrome:4444
                 '''
             }
@@ -293,7 +296,7 @@ pipeline {
                     mvn test \
                     -Dtest=ProductSearchE2ETest \
                     -Dspring.profiles.active=test \
-                    -Dapp.url=http://localhost:8089 \
+                    -Dapp.url=http://host.docker.internal:8089 \
                     -Dselenium.remote.url=http://selenium-chrome:4444
                 '''
             }
@@ -317,7 +320,7 @@ pipeline {
                     mvn test \
                     -Dtest=StockE2ETest \
                     -Dspring.profiles.active=test \
-                    -Dapp.url=http://localhost:8089 \
+                    -Dapp.url=http://host.docker.internal:8089 \
                     -Dselenium.remote.url=http://selenium-chrome:4444
                 '''
             }
