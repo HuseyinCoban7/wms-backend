@@ -1,8 +1,8 @@
 spring:
   datasource:
     url: jdbc:postgresql://wms-postgres:5432/wmsdb
-    username: wmsuser
-    password: wms
+    username: postgres
+    password: admin
     driver-class-name: org.postgresql.Driver
 
   jpa:
