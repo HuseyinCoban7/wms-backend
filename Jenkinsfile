@@ -94,9 +94,9 @@ pipeline {
             steps {
                 echo '========== 5. Docker Compose ile sistem ayağa kaldırılıyor =========='
                 script {
-                    // Eski container'ları zorla temizle (çakışma önlemi)
+                    // Eski container'ları zorla temizle (doğru container adlarıyla)
                     sh '''
-                        docker rm -f wms-postgres backend selenium-chrome || true
+                        docker rm -f wms-postgres wms-backend selenium-chrome || true
                         docker-compose down -v || true
                     '''
 
