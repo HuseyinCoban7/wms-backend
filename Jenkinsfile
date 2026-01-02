@@ -1,10 +1,7 @@
 pipeline {
     agent any
 
-    tools {
-        jdk 'jdk-21'      // Jenkins Global Tool Configuration'dan
-        maven 'maven-3.9' // Jenkins Global Tool Configuration'dan
-    }
+    
 
     environment {
         APP_NAME = "wms-backend"
@@ -18,9 +15,6 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
-    triggers {
-        pollSCM('H/5 * * * *') // Her 5 dakikada bir GitHub'ı kontrol et
-    }
 
     stages {
 
