@@ -174,6 +174,31 @@ pipeline {
         }
     }
 }
+
+stage('5.1 - Debug Backend Logs') {
+    // Sadece önceki stage fail olmuşsa çalışsın
+    when {
+        expression { currentBuild.result == 'FAILURE' || currentBuild.currentResult == 'FAILURE' }
+    }
+    steps {
+        script {
+            echo '📄 Backend ve PostgreSQL logları (debug için):'
+            sh '''
+                set +e
+                echo "===== docker-compose ps ====="
+                docker-compose ps || true
+
+                echo "===== wms-backend FULL LOGS ====="
+                docker-compose logs wms-backend || true
+
+                echo "===== wms-postgres LAST 50 ====="
+                docker-compose logs --tail=50 wms-postgres || true
+            '''
+        }
+    }
+}
+
+        
         // ============================================================
         // 6. ÇALIŞAN SİSTEM ÜZERİNDE E2E TEST SENARYOLARI (55 puan)
         // ============================================================
