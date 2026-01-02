@@ -29,8 +29,8 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://wms-postgres:5432/wmsdb
-      SPRING_DATASOURCE_USERNAME: wmsuser
-      SPRING_DATASOURCE_PASSWORD: wms
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: admin
     ports:
       - "8089:8089"
     depends_on:
