@@ -89,20 +89,19 @@ pipeline {
 
        stage('5 - Run System in Docker') {
     steps {
-        echo '========== 5. Docker Compose ile sistem ayağa kaldırılıyor =========='
         script {
-            // 1) Eski container'ları temizle
-            sh '''
-                echo "🧹 Eski container'lar temizleniyor..."
-                docker rm -f wms-postgres wms-backend selenium-chrome || true
-                docker-compose down -v || true
-            '''
+            echo '🐳 Docker container\'ları temizleniyor...'
+            sh 'docker rm -f wms-postgres wms-backend selenium-chrome || true'
+            sh 'docker-compose down -v || true'
 
             // 2) PostgreSQL + Backend ayağa kaldır
             echo '🐘 PostgreSQL ve Backend ayağa kaldırılıyor...'
             sh '''
                 set -e
+                
+                # Backend image'ını cache kullanmadan yeniden build et
                 docker-compose build --no-cache backend
+                
                 docker-compose up -d wms-postgres backend || {
                   echo "❌ docker-compose up başarısız oldu. wms-postgres logları:"
                   docker-compose logs --tail=100 wms-postgres || true
@@ -117,63 +116,64 @@ pipeline {
                 docker-compose logs --tail=50 wms-postgres || true
             '''
 
-            // 3) PostgreSQL hazır mı?
+            // 3) PostgreSQL hazır olana kadar bekle
             echo 'PostgreSQL hazır olması bekleniyor...'
             sh '''
-                for i in {1..30}; do
-                    if docker exec wms-postgres pg_isready -U postgres -d wmsdb > /dev/null 2>&1; then
-                        echo "✅ PostgreSQL hazır!"
-                        exit 0
-                    fi
-                    echo "Bekleniyor... ($i/30)"
-                    sleep 2
-                done
-                echo "❌ PostgreSQL zaman aşımına uğradı"
-                docker-compose logs wms-postgres || true
-                exit 1
+                docker exec wms-postgres pg_isready -U postgres -d wmsdb && echo "✅ PostgreSQL hazır!" && exit 0
             '''
 
-            // 4) Backend health check
+            // 4) Backend hazır olana kadar bekle
             echo 'Backend uygulaması hazır olması bekleniyor...'
             sh '''
-                for i in {1..60}; do
+                set -e
+                TIMEOUT=120
+                ELAPSED=0
+                
+                while [ $ELAPSED -lt $TIMEOUT ]; do
                     if curl -sSf http://localhost:8089/actuator/health > /dev/null 2>&1; then
-                        echo "✅ Backend hazır!"
+                        echo "✅ Backend hazır! ($ELAPSED saniye)"
                         exit 0
                     fi
-                    echo "Bekleniyor... ($i/60)"
-                    sleep 2
+                    echo "⏳ Backend bekleniyor... ($ELAPSED/$TIMEOUT saniye)"
+                    sleep 5
+                    ELAPSED=$((ELAPSED + 5))
                 done
-                echo "❌ Backend zaman aşımına uğradı"
-                docker-compose logs wms-backend || true
+                
+                echo "❌ Backend $TIMEOUT saniye içinde hazır olmadı"
+                echo "👉 Backend logları:"
+                docker-compose logs --tail=100 wms-backend || true
                 exit 1
             '''
 
             // 5) Selenium ayağa kaldır
-            echo '🧪 Selenium container ayağa kaldırılıyor...'
+            echo '🌐 Selenium Chrome ayağa kaldırılıyor...'
             sh 'docker-compose up -d selenium-chrome'
 
+            // 6) Selenium hazır olana kadar bekle
             echo 'Selenium hazır olması bekleniyor...'
             sh '''
-                for i in {1..20}; do
+                set -e
+                TIMEOUT=60
+                ELAPSED=0
+                
+                while [ $ELAPSED -lt $TIMEOUT ]; do
                     if curl -sSf http://localhost:4444/wd/hub/status > /dev/null 2>&1; then
-                        echo "✅ Selenium hazır!"
+                        echo "✅ Selenium hazır! ($ELAPSED saniye)"
                         exit 0
                     fi
-                    echo "Bekleniyor... ($i/20)"
-                    sleep 2
+                    echo "⏳ Selenium bekleniyor... ($ELAPSED/$TIMEOUT saniye)"
+                    sleep 3
+                    ELAPSED=$((ELAPSED + 3))
                 done
-                echo "❌ Selenium zaman aşımına uğradı"
-                docker-compose logs selenium-chrome || true
+                
+                echo "❌ Selenium $TIMEOUT saniye içinde hazır olmadı"
                 exit 1
             '''
 
-            // Son durum
-            sh 'docker-compose ps'
+            echo '✅ Tüm servisler hazır!'
         }
     }
 }
-
         // ============================================================
         // 6. ÇALIŞAN SİSTEM ÜZERİNDE E2E TEST SENARYOLARI (55 puan)
         // ============================================================
