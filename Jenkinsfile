@@ -92,17 +92,19 @@ pipeline {
                         sh 'docker rm -f wms-postgres wms-backend selenium-chrome || true'
                         sh 'docker-compose down -v || true'
 
-                        echo '🐘 PostgreSQL ve Backend ayağa kaldırılıyor...'
+                        echo '🐘 PostgreSQL, Backend ve Selenium ayağa kaldırılıyor...'
                         sh '''
                             set -e
                             
                             docker-compose build --no-cache backend
                             
-                            docker-compose up -d wms-postgres backend || {
+                            docker-compose up -d wms-postgres backend selenium-chrome || {
                               echo "❌ docker-compose up başarısız oldu. wms-postgres logları:"
                               docker-compose logs --tail=100 wms-postgres || true
                               echo "❌ wms-backend logları:"
                               docker-compose logs --tail=100 wms-backend || true
+                              echo "❌ selenium-chrome logları:"
+                              docker-compose logs --tail=100 selenium-chrome || true
                               exit 1
                             }
 
@@ -139,9 +141,6 @@ pipeline {
                             exit 1
                         '''
 
-                        echo '🌐 Selenium Chrome ayağa kaldırılıyor...'
-                        sh 'docker-compose up -d selenium-chrome'
-
                         echo 'Selenium hazır olması bekleniyor...'
                         sh '''
                             set -e
@@ -159,6 +158,8 @@ pipeline {
                             done
                             
                             echo "❌ Selenium $TIMEOUT saniye içinde hazır olmadı"
+                            echo "👉 Selenium logları:"
+                            docker-compose logs --tail=200 selenium-chrome || true
                             exit 1
                         '''
 
@@ -179,6 +180,9 @@ pipeline {
 
                             echo "===== DEBUG: wms-postgres LAST 50 ====="
                             docker-compose logs --tail=50 wms-postgres || true
+
+                            echo "===== DEBUG: selenium-chrome LAST 50 ====="
+                            docker-compose logs --tail=50 selenium-chrome || true
                         '''
                     }
                 }
