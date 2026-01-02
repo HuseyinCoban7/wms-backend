@@ -14,7 +14,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./db-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U wmsuser -d wmsdb"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d wmsdb"]
       interval: 10s
       timeout: 5s
       retries: 5
