@@ -102,6 +102,7 @@ pipeline {
             echo '🐘 PostgreSQL ve Backend ayağa kaldırılıyor...'
             sh '''
                 set -e
+                docker-compose build --no-cache backend
                 docker-compose up -d wms-postgres backend || {
                   echo "❌ docker-compose up başarısız oldu. wms-postgres logları:"
                   docker-compose logs --tail=100 wms-postgres || true
