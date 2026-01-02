@@ -1,8 +1,25 @@
 spring:
   datasource:
-    url: jdbc:postgresql://postgres:5432/wmsdb
-    username: postgres
-    password: admin
+    url: jdbc:postgresql://wms-postgres:5432/wmsdb
+    username: wmsuser
+    password: wms
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+server:
+  port: 8089
 
 logging:
   level:
