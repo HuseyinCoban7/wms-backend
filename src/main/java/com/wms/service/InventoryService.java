@@ -88,6 +88,27 @@ public class InventoryService {
         return toResponse(saved);
     }
 
+    // Sadece yeni envanter ekleyen ve duplicate varsa hata fırlatan createInventory metodu
+    @Transactional
+    public InventoryResponse createInventory(InventoryRequest request) {
+        Product product = productRepository.findById(request.getProductId())
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+        Location location = locationRepository.findById(request.getLocationId())
+                .orElseThrow(() -> new ResourceNotFoundException("Location not found"));
+        // Duplicate kontrolü
+        if (inventoryRepository.findByProductIdAndLocationId(product.getId(), location.getId()).isPresent()) {
+            throw new IllegalArgumentException("Inventory for this product and location already exists");
+        }
+        Inventory inventory = Inventory.builder()
+                .product(product)
+                .location(location)
+                .quantity(request.getQuantity())
+                .reservedQuantity(request.getReservedQuantity() != null ? request.getReservedQuantity() : 0)
+                .build();
+        Inventory saved = inventoryRepository.save(inventory);
+        return toResponse(saved);
+    }
+
     // Adet ayarlama (+ / -)
     @Transactional
     public InventoryResponse adjustInventory(Long inventoryId, Integer delta) {
