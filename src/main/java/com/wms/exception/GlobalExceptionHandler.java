@@ -105,6 +105,17 @@ public class GlobalExceptionHandler {
                     .build());
   }
 
+  @ExceptionHandler(IllegalArgumentException.class)
+  public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException ex) {
+    logger.error("Bad request: {}", ex.getMessage());
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(ApiResponse.<Void>builder()
+                    .success(false)
+                    .error(ex.getMessage())
+                    .traceId(MDC.get("requestId"))
+                    .build());
+  }
+
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception ex) {
     logger.error("Unexpected error", ex);
