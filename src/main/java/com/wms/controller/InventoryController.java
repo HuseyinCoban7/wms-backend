@@ -74,4 +74,14 @@ public class InventoryController {
         inventoryService.deleteInventory(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/create")
+    public ResponseEntity<ApiResponse<InventoryResponse>> createInventory(@Valid @RequestBody InventoryRequest request) {
+        InventoryResponse response = inventoryService.createInventory(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.<InventoryResponse>builder()
+                .success(true)
+                .data(response)
+                .traceId(MDC.get("requestId"))
+                .build());
+    }
 }
