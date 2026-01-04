@@ -22,9 +22,13 @@ pipeline {
                 sh '''
                     mvn test \
                     -Dtest=*ServiceTest \
-                    -Dspring.profiles.active=test \
-                    -Dsurefire.reportsDirectory=target/surefire-reports/unit
+                    -Dspring.profiles.active=test
                 '''
+            }
+            post {
+                always {
+                    sh 'mkdir -p custom-reports/unit && cp target/surefire-reports/*.xml custom-reports/unit/ || true'
+                }
             }
         }
 
@@ -34,9 +38,13 @@ pipeline {
                 sh '''
                     mvn test \
                     -Dtest=*IntegrationTest \
-                    -Dspring.profiles.active=ci \
-                    -Dsurefire.reportsDirectory=target/surefire-reports/integration
+                    -Dspring.profiles.active=ci
                 '''
+            }
+            post {
+                always {
+                    sh 'mkdir -p custom-reports/integration && cp target/surefire-reports/*.xml custom-reports/integration/ || true'
+                }
             }
         }
 
@@ -78,9 +86,13 @@ pipeline {
                     -Dtest=LoginE2ETest \
                     -Dspring.profiles.active=test \
                     -Dapp.url=http://host.docker.internal:8089 \
-                    -Dselenium.remote.url=http://host.docker.internal:4444 \
-                    -Dsurefire.reportsDirectory=target/surefire-reports/e2e
+                    -Dselenium.remote.url=http://host.docker.internal:4444
                 '''
+            }
+            post {
+                always {
+                    sh 'mkdir -p custom-reports/e2e && cp target/surefire-reports/*.xml custom-reports/e2e/ || true'
+                }
             }
         }
 
@@ -92,9 +104,13 @@ pipeline {
                     -Dtest=ProductE2ETest \
                     -Dspring.profiles.active=test \
                     -Dapp.url=http://host.docker.internal:8089 \
-                    -Dselenium.remote.url=http://host.docker.internal:4444 \
-                    -Dsurefire.reportsDirectory=target/surefire-reports/e2e
+                    -Dselenium.remote.url=http://host.docker.internal:4444
                 '''
+            }
+            post {
+                always {
+                    sh 'mkdir -p custom-reports/e2e && cp target/surefire-reports/*.xml custom-reports/e2e/ || true'
+                }
             }
         }
 
@@ -111,9 +127,13 @@ pipeline {
                     -Dtest=LogoutE2ETest \
                     -Dspring.profiles.active=test \
                     -Dapp.url=http://host.docker.internal:8089 \
-                    -Dselenium.remote.url=http://host.docker.internal:4444 \
-                    -Dsurefire.reportsDirectory=target/surefire-reports/e2e
+                    -Dselenium.remote.url=http://host.docker.internal:4444
                 '''
+            }
+            post {
+                always {
+                    sh 'mkdir -p custom-reports/e2e && cp target/surefire-reports/*.xml custom-reports/e2e/ || true'
+                }
             }
         }
 
@@ -130,9 +150,13 @@ pipeline {
                     -Dtest=ProductSearchE2ETest \
                     -Dspring.profiles.active=test \
                     -Dapp.url=http://host.docker.internal:8089 \
-                    -Dselenium.remote.url=http://host.docker.internal:4444 \
-                    -Dsurefire.reportsDirectory=target/surefire-reports/e2e
+                    -Dselenium.remote.url=http://host.docker.internal:4444
                 '''
+            }
+            post {
+                always {
+                    sh 'mkdir -p custom-reports/e2e && cp target/surefire-reports/*.xml custom-reports/e2e/ || true'
+                }
             }
         }
     }
@@ -141,10 +165,11 @@ pipeline {
         always {
             echo '========== Pipeline Tamamlandı =========='
             
-            // Tüm test raporlarını topla
-            junit allowEmptyResults: true, testResults: 'target/surefire-reports/**/*.xml'
+            // Tüm test raporlarını custom-reports klasöründen topla
+            junit allowEmptyResults: true, testResults: 'custom-reports/**/*.xml'
             
             sh 'docker-compose down -v || true'
+            sh 'rm -rf custom-reports || true'
         }
         success {
             echo '✅ Build başarılı!'
