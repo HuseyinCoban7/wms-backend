@@ -101,8 +101,6 @@ class LogoutE2ETest {
         });
 
         // 2) Logout butonuna tıkla
-        // BURADA senin frontend’ine göre selector’ı ayarlamamız gerek:
-        // Örnek: <button id="logout-btn">Logout</button>
         WebElement logoutButton = wait.until(
                 ExpectedConditions.elementToBeClickable(By.id("logout-btn"))
         );
