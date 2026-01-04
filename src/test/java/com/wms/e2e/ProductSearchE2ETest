@@ -83,7 +83,7 @@ class ProductSearchE2ETest {
     @Test
     @Order(1)
     void testProductSearch_FiltersResults() {
-        String searchKeyword = "test"; // Frontend’de var olan bir ürün adına uygun bir kelime seç
+        String searchKeyword = "test"; 
 
         // 1) Login
         driver.get(baseUrl + "/login");
@@ -108,7 +108,6 @@ class ProductSearchE2ETest {
         driver.get(baseUrl + "/admin/products");
 
         // 3) Arama input’unu bul
-        // ÖRNEK: <input id="product-search" ... />
         WebElement searchInput = wait.until(
                 ExpectedConditions.presenceOfElementLocated(By.id("product-search"))
         );
@@ -120,8 +119,6 @@ class ProductSearchE2ETest {
         // searchButton.click();
 
         // 4) Filtrelenmiş sonuçları bekle
-        // ÖRNEK: ürün satırları <tr class="product-row"> veya tbody > tr biçiminde olsun
-        // Bunları kendi HTML’ine göre güncellememiz gerekebilir.
         wait.withTimeout(Duration.ofSeconds(5));
 
         List<WebElement> rows = wait.until(
@@ -133,7 +130,6 @@ class ProductSearchE2ETest {
         assertFalse(rows.isEmpty(), "Filtrelemeden sonra hiç ürün görünmüyor!");
 
         // 5) Her satırın ilgili sütununda (örneğin ürün adı) aradığımız kelimeyi içerdiğini kontrol et
-        // Örneğin: ilk sütun ürün adıysa:
         for (WebElement row : rows) {
             List<WebElement> cells = row.findElements(By.tagName("td"));
             assertFalse(cells.isEmpty(), "Ürün satırında hücre bulunamadı!");
