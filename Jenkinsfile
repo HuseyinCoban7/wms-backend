@@ -58,7 +58,7 @@ pipeline {
             }
             post {
                 always {
-                    sh 'mkdir -p custom-reports/unit && cp target/surefire-reports/*.xml custom-reports/unit/ || true'
+                    junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
                     echo '📊 Birim test raporları toplandı'
                 }
             }
@@ -78,7 +78,7 @@ pipeline {
             }
             post {
                 always {
-                    sh 'mkdir -p custom-reports/integration && cp target/surefire-reports/*.xml custom-reports/integration/ || true'
+                    junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
                     echo '📊 Entegrasyon test raporları toplandı'
                 }
             }
@@ -183,7 +183,7 @@ pipeline {
             }
             post {
                 always {
-                    sh 'mkdir -p custom-reports/e2e && cp target/surefire-reports/*.xml custom-reports/e2e/ || true'
+                    junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
                     echo '📊 E2E Test 1 raporu toplandı'
                 }
             }
@@ -202,7 +202,7 @@ pipeline {
             }
             post {
                 always {
-                    sh 'mkdir -p custom-reports/e2e && cp target/surefire-reports/*.xml custom-reports/e2e/ || true'
+                    junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
                     echo '📊 E2E Test 2 raporu toplandı'
                 }
             }
@@ -221,68 +221,64 @@ pipeline {
             }
             post {
                 always {
-                    sh 'mkdir -p custom-reports/e2e && cp target/surefire-reports/*.xml custom-reports/e2e/ || true'
+                    junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
                     echo '📊 E2E Test 3 raporu toplandı'
                 }
             }
         }
 
         stage('6.4 - E2E Test: User Logout') {
-            when {
-                expression {
-                    return fileExists('src/test/java/com/wms/e2e/LogoutE2ETest.java')
-                }
-            }
-            steps {
-                echo '========== 6.4. E2E Senaryo: Kullanıcı Logout =========='
-                sh '''
-                    mvn test \
-                    -Dtest=LogoutE2ETest \
-                    -Dspring.profiles.active=test \
-                    -Dapp.url=http://host.docker.internal:8089 \
-                    -Dselenium.remote.url=http://host.docker.internal:4444
-                '''
-            }
-            post {
-                always {
-                    sh 'mkdir -p custom-reports/e2e && cp target/surefire-reports/*.xml custom-reports/e2e/ || true'
-                    echo '📊 E2E Test 4 raporu toplandı'
-                }
-            }
+    when {
+        expression {
+            return fileExists('src/test/java/com/wms/e2e/LogoutE2ETest.java')
         }
-
+    }
+    steps {
+        echo '========== 6.4. E2E Senaryo: Kullanıcı Logout =========='
+        sh '''
+            mvn test \
+            -Dtest=LogoutE2ETest \
+            -Dspring.profiles.active=test \
+            -Dapp.url=http://host.docker.internal:8089 \
+            -Dselenium.remote.url=http://host.docker.internal:4444
+        '''
+    }
+    post {
+        always {
+            junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
+            echo '📊 E2E Test 4 raporu toplandı'
+        }
+    }
+}
         stage('6.5 - E2E Test: Product Search') {
-            when {
-                expression {
-                    return fileExists('src/test/java/com/wms/e2e/ProductSearchE2ETest.java')
-                }
-            }
-            steps {
-                echo '========== 6.5. E2E Senaryo: Product Search =========='
-                sh '''
-                    mvn test \
-                    -Dtest=ProductSearchE2ETest \
-                    -Dspring.profiles.active=test \
-                    -Dapp.url=http://host.docker.internal:8089 \
-                    -Dselenium.remote.url=http://host.docker.internal:4444
-                '''
-            }
-            post {
-                always {
-                    sh 'mkdir -p custom-reports/e2e && cp target/surefire-reports/*.xml custom-reports/e2e/ || true'
-                    echo '📊 E2E Test (Product Search) raporu toplandı'
-                }
-            }
+    when {
+        expression {
+            return fileExists('src/test/java/com/wms/e2e/ProductSearchE2ETest.java')
         }
+    }
+    steps {
+        echo '========== 6.5. E2E Senaryo: Product Search =========='
+        sh '''
+            mvn test \
+            -Dtest=ProductSearchE2ETest \
+            -Dspring.profiles.active=test \
+            -Dapp.url=http://host.docker.internal:8089 \
+            -Dselenium.remote.url=http://host.docker.internal:4444
+        '''
+    }
+    post {
+        always {
+            junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
+            echo '📊 E2E Test (Product Search) raporu toplandı'
+        }
+    }
+}
     }
 
     post {
         always {
             echo '========== Pipeline tamamlandı =========='
             script {
-                // Tüm test raporlarını custom-reports klasöründen topla
-                junit allowEmptyResults: true, testResults: 'custom-reports/**/*.xml'
-                
                 // Container loglarını kaydet
                 sh 'docker-compose logs backend > backend.log 2>&1 || true'
                 sh 'docker-compose logs wms-postgres > postgres.log 2>&1 || true'
@@ -300,9 +296,8 @@ pipeline {
                     reportName: 'Test Report'
                 ])
 
-                // Container'ları ve custom-reports klasörünü temizle
+                // Container'ları temizle
                 sh 'docker-compose down -v || true'
-                sh 'rm -rf custom-reports || true'
             }
         }
         success {
