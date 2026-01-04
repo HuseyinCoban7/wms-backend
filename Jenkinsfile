@@ -226,6 +226,30 @@ pipeline {
                 }
             }
         }
+
+        stage('6.4 - E2E Test: User Logout') {
+    when {
+        expression {
+            return fileExists('src/test/java/com/wms/e2e/LogoutE2ETest.java')
+        }
+    }
+    steps {
+        echo '========== 6.4. E2E Senaryo: Kullanıcı Logout =========='
+        sh '''
+            mvn test \
+            -Dtest=LogoutE2ETest \
+            -Dspring.profiles.active=test \
+            -Dapp.url=http://host.docker.internal:8089 \
+            -Dselenium.remote.url=http://host.docker.internal:4444
+        '''
+    }
+    post {
+        always {
+            junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
+            echo '📊 E2E Test 4 raporu toplandı'
+        }
+    }
+}
     }
 
     post {
