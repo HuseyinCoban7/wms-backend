@@ -250,6 +250,29 @@ pipeline {
         }
     }
 }
+        stage('6.5 - E2E Test: Product Search') {
+    when {
+        expression {
+            return fileExists('src/test/java/com/wms/e2e/ProductSearchE2ETest.java')
+        }
+    }
+    steps {
+        echo '========== 6.5. E2E Senaryo: Product Search =========='
+        sh '''
+            mvn test \
+            -Dtest=ProductSearchE2ETest \
+            -Dspring.profiles.active=test \
+            -Dapp.url=http://host.docker.internal:8089 \
+            -Dselenium.remote.url=http://host.docker.internal:4444
+        '''
+    }
+    post {
+        always {
+            junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
+            echo '📊 E2E Test (Product Search) raporu toplandı'
+        }
+    }
+}
     }
 
     post {
