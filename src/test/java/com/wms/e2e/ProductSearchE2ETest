@@ -1,0 +1,148 @@
+package com.wms.e2e;
+
+import com.wms.entity.User;
+import com.wms.enums.Role;
+import com.wms.repository.UserRepository;
+import org.junit.jupiter.api.*;
+import org.openqa.selenium.*;
+import org.openqa.selenium.remote.RemoteWebDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.ActiveProfiles;
+
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.time.Duration;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@ActiveProfiles("test")
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+class ProductSearchE2ETest {
+
+    private static WebDriver driver;
+    private static WebDriverWait wait;
+    private static String baseUrl;
+    private static String seleniumUrl;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @BeforeAll
+    static void setUpDriver() throws MalformedURLException {
+        baseUrl = System.getProperty("app.url", "http://localhost:8089");
+        seleniumUrl = System.getProperty("selenium.remote.url", "http://localhost:4444");
+
+        System.out.println("🌐 App URL: " + baseUrl);
+        System.out.println("🔗 Selenium URL: " + seleniumUrl);
+
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--headless=new");
+        options.addArguments("--disable-gpu");
+        options.addArguments("--window-size=1920,1080");
+
+        driver = new RemoteWebDriver(
+                new URL(seleniumUrl + "/wd/hub"),
+                options
+        );
+        wait = new WebDriverWait(driver, Duration.ofSeconds(20));
+    }
+
+    @BeforeEach
+    void setupTestData() {
+        userRepository.findByEmail("admin@wms.com").ifPresent(userRepository::delete);
+
+        User admin = new User();
+        admin.setEmail("admin@wms.com");
+        admin.setPassword(passwordEncoder.encode("Admin123!"));
+        admin.setRole(Role.ROLE_ADMIN);
+        admin.setFullName("Test Admin");
+        admin.setActive(true);
+
+        userRepository.saveAndFlush(admin);
+    }
+
+    @AfterAll
+    static void tearDown() {
+        if (driver != null) {
+            driver.quit();
+        }
+    }
+
+    @Test
+    @Order(1)
+    void testProductSearch_FiltersResults() {
+        String searchKeyword = "test"; // Frontend’de var olan bir ürün adına uygun bir kelime seç
+
+        // 1) Login
+        driver.get(baseUrl + "/login");
+
+        WebElement emailInput = wait.until(ExpectedConditions.presenceOfElementLocated(By.id("email")));
+        WebElement passwordInput = driver.findElement(By.id("password"));
+        WebElement loginButton = driver.findElement(By.cssSelector("button[type='submit']"));
+
+        emailInput.sendKeys("admin@wms.com");
+        passwordInput.sendKeys("Admin123!");
+        loginButton.click();
+
+        // Token yazılsın
+        wait.until(d -> {
+            Object token = ((JavascriptExecutor) d)
+                    .executeScript("return window.localStorage.getItem('token');");
+            return token != null && !token.toString().isEmpty();
+        });
+
+        // 2) Product listesine git
+        // Burada /admin/products ya da senin ürün liste path’in neyse onu kullan.
+        driver.get(baseUrl + "/admin/products");
+
+        // 3) Arama input’unu bul
+        // ÖRNEK: <input id="product-search" ... />
+        WebElement searchInput = wait.until(
+                ExpectedConditions.presenceOfElementLocated(By.id("product-search"))
+        );
+        searchInput.clear();
+        searchInput.sendKeys(searchKeyword);
+
+        // Eğer arama butonu varsa:
+        // WebElement searchButton = driver.findElement(By.id("product-search-btn"));
+        // searchButton.click();
+
+        // 4) Filtrelenmiş sonuçları bekle
+        // ÖRNEK: ürün satırları <tr class="product-row"> veya tbody > tr biçiminde olsun
+        // Bunları kendi HTML’ine göre güncellememiz gerekebilir.
+        wait.withTimeout(Duration.ofSeconds(5));
+
+        List<WebElement> rows = wait.until(
+                ExpectedConditions.presenceOfAllElementsLocatedBy(
+                        By.cssSelector("table tbody tr")
+                )
+        );
+
+        assertFalse(rows.isEmpty(), "Filtrelemeden sonra hiç ürün görünmüyor!");
+
+        // 5) Her satırın ilgili sütununda (örneğin ürün adı) aradığımız kelimeyi içerdiğini kontrol et
+        // Örneğin: ilk sütun ürün adıysa:
+        for (WebElement row : rows) {
+            List<WebElement> cells = row.findElements(By.tagName("td"));
+            assertFalse(cells.isEmpty(), "Ürün satırında hücre bulunamadı!");
+
+            String productName = cells.get(0).getText().toLowerCase(); // ilk hücre ürün adı varsayımı
+            assertTrue(
+                    productName.contains(searchKeyword.toLowerCase()),
+                    "Ürün adı aranan kelimeyi içermiyor. Ürün: " + productName
+            );
+        }
+    }
+}
